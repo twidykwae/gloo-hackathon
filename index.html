@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Language ID</title>
+    <link rel="stylesheet" href="css/styles.css" />
+    <script type="module" src="js/main.js"></script>
+  </head>
+  <!--
+    One page, one URL. js/main.js sets data-phase on <body> as the flow moves:
+      idle -> recording -> consent -> waiting -> results   (or error)
+    Sections are shown and hidden with the `hidden` attribute, so the page works
+    before any CSS exists. See README.md, "Styling hooks".
+  -->
+  <body data-phase="idle">
+    <main id="app">
+      <!-- Record -->
+      <section id="record-view" aria-labelledby="record-heading">
+        <h1 id="record-heading">Speak in your language</h1>
+        <button type="button" id="record-button" data-recording="false">Start recording</button>
+        <p id="record-timer" hidden><span id="record-seconds">0</span> s</p>
+      </section>
+
+      <!-- Waiting for the model -->
+      <section id="loading" role="status" aria-live="polite" hidden>
+        <div class="spinner" aria-hidden="true"></div>
+        <p>Identifying the language…</p>
+      </section>
+
+      <!-- Results -->
+      <section id="results-view" aria-labelledby="results-heading" hidden>
+        <h2 id="results-heading">Possible languages</h2>
+
+        <form id="results-filters">
+          <fieldset>
+            <legend>Show</legend>
+            <label><input type="radio" name="scope" value="all" checked /> All results</label>
+            <label><input type="radio" name="scope" value="local" /> Near me</label>
+          </fieldset>
+          <p id="location-status" aria-live="polite"></p>
+
+          <label for="min-confidence">Minimum confidence</label>
+          <select id="min-confidence" name="minConfidence">
+            <option value="0" selected>Any</option>
+            <option value="0.01">1% or more</option>
+            <option value="0.05">5% or more</option>
+            <option value="0.1">10% or more</option>
+          </select>
+        </form>
+
+        <p id="results-summary" aria-live="polite"></p>
+        <ol id="results-list"></ol>
+        <p id="results-empty" hidden>No languages match these filters.</p>
+        <button type="button" id="show-more" hidden>Show more</button>
+        <button type="button" id="record-again">Record again</button>
+      </section>
+
+      <!-- Error -->
+      <section id="error-view" role="alert" hidden>
+        <p id="error-message"></p>
+        <button type="button" id="error-retry">Try again</button>
+      </section>
+    </main>
+
+    <!-- Consent: shown as soon as recording stops, while the model works. -->
+    <dialog id="consent-dialog" aria-labelledby="consent-heading">
+      <h2 id="consent-heading">May we keep your recording?</h2>
+      <p>
+        We would use it to improve our language model, especially for languages
+        we have little audio of. Your answer doesn't change your results.
+      </p>
+      <div class="consent-actions">
+        <button type="button" id="consent-no" value="no">No, don't keep it</button>
+        <button type="button" id="consent-yes" value="yes">Yes, keep it</button>
+      </div>
+    </dialog>
+
+    <!-- One results row. js/main.js clones this for each language. -->
+    <template id="result-row">
+      <li class="result">
+        <span class="result-rank"></span>
+        <span class="result-name"></span>
+        <span class="result-iso"></span>
+        <span class="result-confidence"></span>
+        <span class="result-local" hidden>Near you</span>
+        <button type="button" class="result-play" aria-pressed="false" data-playing="false">Play sample</button>
+      </li>
+    </template>
+  </body>
+</html>

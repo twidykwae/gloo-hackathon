@@ -1,0 +1,10 @@
+{
+  "name": "language-id-web",
+  "private": true,
+  "type": "module",
+  "description": "Language ID page: record, consent, identify, ranked results. Vanilla HTML/JS/CSS, no build step.",
+  "scripts": {
+    "start": "python -m http.server 8080",
+    "test": "node --test"
+  }
+}

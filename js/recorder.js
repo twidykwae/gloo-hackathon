@@ -1,17 +1,6 @@
-// Microphone recording with MediaRecorder.
-//
-// The browser picks the format: Chrome, Edge, Firefox and Android record
-// WebM/Opus; Safari records MP4/AAC. The blob's `type` says which.
-
 const PREFERRED_TYPES = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg;codecs=opus']
 
-/**
- * Start recording. Resolves once the microphone is live.
- *   maxSeconds: stop by itself after this long (onLimit is called)
- *   onTick:     called every second with seconds elapsed
- * Returns { stop(): Promise<Blob>, cancel() }.
- * Rejects if there's no microphone or permission is denied.
- */
+
 export async function startRecording({ maxSeconds = 20, onTick, onLimit } = {}) {
   if (!navigator.mediaDevices?.getUserMedia) {
     throw new Error('This browser cannot record audio (it needs https or localhost)')
@@ -40,12 +29,16 @@ export async function startRecording({ maxSeconds = 20, onTick, onLimit } = {}) 
 
   let stopped = null
   recorder.start()
+  const startedAt = performance.now()
   return {
     stop() {
       stopped ??= new Promise((resolve) => {
         recorder.onstop = () => {
           release()
-          resolve(new Blob(chunks, { type: recorder.mimeType }))
+          resolve({
+            blob: new Blob(chunks, { type: recorder.mimeType }),
+            seconds: (performance.now() - startedAt) / 1000,
+          })
         }
         recorder.stop()
       })

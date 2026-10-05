@@ -1,9 +1,4 @@
-// Everything that talks to a server goes through here, so the rest of the
-// page doesn't change when the team picks the model server and storage.
-//
-//   identify(recording)            -> raw model response (see js/results.js for the format)
-//   saveConsent(answer)            -> records the yes/no answer
-//   saveRecording(recording, meta) -> keeps the audio for training (only after a "yes")
+import { toWav } from './wav.js'
 
 export function createBackend(config) {
   const mode = new URLSearchParams(location.search).get('backend') ?? config.backend
@@ -21,7 +16,7 @@ function mockBackend(config) {
     name: 'mock',
     async identify(recording) {
       await wait(config.mockDelayMs)
-      const response = await fetch('data/sample-model-response.json')
+      const response = await fetch(config.mockResponse)
       if (!response.ok) throw new Error(`Could not load sample data: ${response.status}`)
       console.info('[mock] identified a %s recording (%d bytes)', recording.type, recording.size)
       return response.json()
@@ -39,7 +34,13 @@ function mockBackend(config) {
 
 function httpBackend(config) {
   async function post(url, body) {
-    const response = await fetch(url, { method: 'POST', body })
+    let response
+    try {
+      response = await fetch(url, { method: 'POST', body })
+    } catch {
+      // fetch only throws when there's no response at all: server down, wrong address, or CORS.
+      throw new Error(`Could not reach the server at ${url}. Is it running?`)
+    }
     if (!response.ok) {
       const detail = await response.text().catch(() => '')
       throw new Error(`${url} returned ${response.status} ${detail.slice(0, 200)}`)
@@ -51,8 +52,9 @@ function httpBackend(config) {
   return {
     name: 'http',
     async identify(recording) {
+      // The model server reads 16 kHz WAV; see js/wav.js.
       const form = new FormData()
-      form.append('file', recording, `recording.${extension(recording.type)}`)
+      form.append('file', await toWav(recording), 'recording.wav')
       return (await post(config.identifyUrl, form)).json()
     },
     async saveConsent(answer) {

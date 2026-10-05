@@ -1,58 +1,113 @@
 # Language ID (web)
 
 Record someone speaking, ask for consent to keep the recording, send it to the
-language-ID model, and show a ranked list of languages with play buttons. It's
+language-ID model, and show a ranked list of languages. It's
 all on one page and one URL.
 
-Plain HTML, JavaScript and CSS. There's no build step and no dependencies; the
-only tools are a static file server and, for tests, Node.
+Plain HTML, JavaScript and CSS for the page, with no build step. A small
+Python server in `server/` runs the language-ID model and serves the page.
 
-**Status:** the whole flow works against a **mock server** that returns sample
-model output. The real model server and storage aren't decided yet. When they
-are, only `js/config.js` and `js/backend.js` change.
+**Status:** the whole flow works with **real results from Meta's
+language-ID model** (`facebook/mms-lid-4017`). Storing consent answers and kept
+recordings isn't built yet (see "Still to decide").
 
 ## Run it
 
-The page uses JavaScript modules and loads JSON files, so it has to be served
-over HTTP; opening `index.html` directly won't work.
+One command starts everything: the model and the page, on one address.
 
 ```bash
-python -m http.server 8080
+cd C:\dev\language-id-web\server
+.venv\Scripts\python -m uvicorn app.main:create_app --factory --port 8080
 ```
 
-Then open <http://localhost:8080> in Chrome, Edge or Firefox. The microphone
-and GPS work on `localhost` without HTTPS. On any other address they need
-HTTPS.
+Wait for `Application startup complete` (about 10 seconds while the model
+loads), then open <http://localhost:8080> in Chrome, Edge or Firefox. Press
+Ctrl+C to stop it.
 
-Add `?backend=http` to the URL to use the real server settings in
-`js/config.js` instead of the mock.
+The microphone and GPS work on `localhost` without HTTPS. On any other address
+they need HTTPS.
+
+**Faster start for UI work.** Set `LID_IDENTIFIER=stub` before starting, and
+the server skips loading the model and returns fixed answers instantly. In
+PowerShell:
+
+```powershell
+$env:LID_IDENTIFIER = "stub"
+```
+
+**The page without the server** (for example, for the designer). Serve just
+the page files and add `?backend=mock`. The page then uses a saved real
+response instead of calling the model:
+
+```bash
+npm run serve-page
+```
+
+Then open <http://localhost:8081/?backend=mock>. VS Code's Live Server works
+too. Don't open `index.html` directly; browsers block its JavaScript modules
+from `file://`.
+
+**Seeing old behaviour after a code change?** The browser may be running a
+cached copy of the JavaScript. The model server tells browsers to always
+check for newer files, but `npm run serve-page` doesn't. Press **Ctrl+F5** to
+reload with fresh files, or keep DevTools open with **Disable cache** ticked
+(Network tab).
+
+### First-time setup on a new machine
+
+You need Python 3.11+ and, for the page tests, Node 20+.
+
+```bash
+cd server
+python -m venv .venv
+```
+
+```bash
+.venv\Scripts\python -m pip install -r requirements-dev.txt
+```
+
+This installs PyTorch, a large download. The first server start also downloads
+Meta's model, a few GB.
 
 ## Tests
 
+Page (36 tests: converting model output including real saved responses,
+filters, GPS-to-country, WAV encoding):
+
 ```bash
-node --test
+npm test
 ```
 
-These cover converting model output, the filters, and GPS-to-country
-(22 tests, Node 20+).
+Server (`/predict`, audio decoding, serving the page, LAMP wiring):
+
+```bash
+cd server
+.venv\Scripts\python -m pytest
+```
 
 ## Files
 
 | File | Job |
 | --- | --- |
-| `index.html` | All the markup: record button, loading spinner, results, consent popup, and a `<template>` for one results row |
+| `index.html` | All the markup: record button, loading spinner, results, consent popup, and `<template>`s for a results row and a variety row |
 | `css/styles.css` | Design. Almost empty; it belongs to the designer. See "Styling hooks" |
 | `js/main.js` | Wires everything together and runs the flow |
 | `js/recorder.js` | Microphone recording (`MediaRecorder`) |
+| `js/wav.js` | Converts the recording to the 16 kHz WAV the model server reads |
 | `js/backend.js` | **Every server call**: identify, save consent, keep recording. Mock and real versions |
-| `js/config.js` | Settings: mock or real server, URLs, page size, recording limit |
+| `js/config.js` | Settings: real or mock server, URLs, page size, recording limit |
 | `js/results.js` | **Converts raw model output into rows**, and filters them. No DOM, fully tested |
 | `js/location.js` | Browser GPS to country code |
-| `js/player.js` | Plays one sample at a time |
-| `data/languages.json` | All 6,816 GRN languages: name, ISO code, parent, whether a sample exists, countries |
+| `data/languages.json` | All 6,816 GRN languages: name, ISO code, macrolanguage code, parent, whether a sample exists, countries |
 | `data/countries.geojson` | Country borders (Natural Earth, public domain) for GPS to country, offline |
-| `data/sample-model-response.json` | Sample model output (see below) |
+| `data/samples/` | Saved model responses: real ones from Meta's model, plus a made-up LAMP-format one (see below) |
 | `tools/build_data.py` | Rebuilds the two data files from the 5fish database |
+| `tools/database_5fish.db` | The 5fish apps' offline database (not in git), read by `build_data.py` |
+| `server/app/main.py` | The server: `POST /predict` runs the model; also serves the page (`/`, `css/`, `js/`, `data/` only) |
+| `server/app/identifiers.py` | The models: Meta's MMS (default), LAMP (over HTTP), and a stub |
+| `server/app/audio.py` | Reads the uploaded WAV |
+| `server/app/config.py` | Server settings, from environment variables (see below) |
+| `server/tools/fake_lamp.py` | A stand-in for LAMP's server, for testing LAMP mode without its weights |
 
 ## The flow
 
@@ -69,53 +124,76 @@ idle ──tap──▶ recording ──tap, or 20 s limit──▶ consent popu
   recording is only kept (`backend.saveRecording`) after a "yes". Identifying
   the language happens either way.
 - **An answer is required:** Escape doesn't close the popup.
+- **Recordings under 2 seconds aren't sent** (`minRecordingSeconds` in
+  `js/config.js`). The person sees a message asking them to speak longer.
+  Under about 0.3 seconds, the browser can't even read the recording back,
+  which caused "Unable to decode audio data" before this check existed.
 
 ## Model output and how it's converted
 
-**Raw model output.** This is LAMP's `serve.py` format; see
-`data/sample-model-response.json`:
+**Sending.** When recording stops, `js/backend.js` converts the recording to
+16 kHz mono WAV (`js/wav.js`) and posts it to `/predict` on the server that
+served the page, in a form field named `file`. The server needs no ffmpeg because
+the browser does the conversion.
+
+**Raw model output.** `POST /predict` returns every one of the model's 4,017
+guesses, best first, with probabilities that add up to 1. Real examples are
+in `data/samples/`:
 
 ```json
-{ "duration": 7.3,
-  "predictions": [ { "id": 14, "probability": 0.412, "iso": "ctu", "url": "..." }, ... ] }
+{ "model": "mms:facebook/mms-lid-4017", "label_kind": "iso639_3", "duration": 11.0,
+  "predictions": [ { "label": "eng", "probability": 0.505 }, { "label": "sco", "probability": 0.059 }, ... ] }
 ```
 
-`id` is a GRN language ID, and the list is sorted best first. The sample uses
-real GRN IDs from LAMP's label list, but **the probabilities are made up**:
-LAMP's trained weights aren't available yet. Replace it with a real response
-once the model runs.
+- **Labels are ISO 639-3 codes** (`label_kind: "iso639_3"`), not GRN
+  languages. One code can mean several GRN languages: `eng` covers 18 English
+  varieties.
+- **Some labels are umbrella "macrolanguage" codes** (`ara`, `que`, `zho`).
+  These map to their member languages.
+- **The full list matters.** A low-resource language can rank far down the
+  list overall but near the top for its country (see Filters).
 
-**Converted row** (`toCandidates` in `js/results.js`), one per prediction:
+**Converted guess** (`toCandidates` in `js/results.js`), one per prediction:
 
 ```js
-{ rank: 1, id: 14, name: "Chol: Tumbala", iso: "ctu",
-  confidence: 0.412, percent: 41.2,
-  sampleUrl: "https://media.globalrecordings.net/GOKit_MP3/sample-14.mp3",
-  contentUrl: "https://5fish.mobi/14",
-  countries: ["MX"], parentCountries: [...], known: true }
+{ rank: 1, label: "eng", name: "English", confidence: 0.505, percent: 50.46, known: true,
+  languages: [
+    { id: 5185, name: "English", iso: "eng",
+      contentUrl: "https://5fish.mobi/5185", countries: [...], parentCountries: [...] },
+    { id: 25, name: "English: USA", ... },
+    ...
+  ] }
 ```
 
-- **The name, countries and sample flag come from `data/languages.json`.**
-  The model only returns IDs.
-- **`known: false`** means the 5fish catalog doesn't have that ID, for example
-  `0`, which LAMP uses for "no speech". Those rows are never shown; the summary
-  line counts them.
-- **Sample links follow a pattern** from the ID. About 1 in 7 is broken; the
-  play button then becomes disabled and gets `data-unavailable`.
+- **Each guess lists the GRN languages it could mean,** from
+  `data/languages.json`, shortest name first. On the page, a guess with one
+  language is a single row; one with several gets a "varieties" list.
+- **The guess is named after the language its varieties belong to**
+  ("Sindhi", not its variety "Charan").
+- **`known: false`** means no GRN language matches the label. 151 of the
+  model's 4,017 codes don't match. Those guesses are never shown.
+- **The same code reads LAMP's GRN-ID output** (`label_kind:
+  "grn_language_id"`, or LAMP `serve.py`'s own format), where each guess is
+  exactly one language. `data/samples/lamp-illustrative.json` shows that
+  format; its scores are made up.
 
-**If the team picks a different model server,** its output may be shaped
-differently. For example, Meta's model returns ISO codes, not GRN IDs. Then
-only `toCandidates` needs a new version.
+**What real scores look like.** On a clear English clip, English came first
+at about 50%. On a Coast Tsimshian recording, a low-resource language, nothing
+scored above 1.4%, and Tsimshian itself ranked about 45th to 170th. With
+"Near me" in Canada, Tsimshian moved up to about 9th. Expect the second
+pattern for many of the languages GRN serves.
 
 ## Filters
 
 | Control | What it does |
 | --- | --- |
-| **All results / Near me** | "All" is the model's raw ranking. "Near me" asks for GPS permission (the first time only), finds the country, and keeps only languages the 5fish data lists there. A variety counts if its parent language is listed. |
-| **Minimum confidence** | Hides guesses below 1%, 5% or 10% |
+| **All results / Near me** | "All" is the model's raw ranking. "Near me" asks for GPS permission (the first time only), finds the country, and keeps only languages the 5fish data lists there. A variety counts if its parent language is listed. Within each guess, varieties listed for the country itself come first. |
+| **Minimum confidence** | A slider whose range adapts to each recording. Far left shows everything; far right shows only the top guess. In between it's logarithmic, covering the three powers of ten below the top score, so it's as useful when the top guess is 50% (clear English) as when it's 0.7% (Tsimshian). The value after it shows the current minimum. While dragging, only that value and the "Showing X of Y" count change; the list updates when the slider is let go, so the page doesn't jump around. It resets to "Any" for each new recording |
 | **Show more** | Shows 10 more rows. The first page is 10 (`pageSize` in `js/config.js`) |
 
-Rows keep the model's rank, so a filtered list can read 1, 3, 4, 7…
+The list's numbering is the browser's own (1, 2, 3…). The model's rank is
+kept on each row as `data-rank`; it can skip numbers, because guesses the
+catalog doesn't have are dropped.
 
 ## Styling hooks
 
@@ -129,10 +207,13 @@ CSS.
 | `#record-timer`, `#record-seconds` | Seconds recorded, shown only while recording |
 | `#loading .spinner` | The loading spinner (a placeholder spin rule is in `styles.css`) |
 | `#consent-dialog` | A native `<dialog>`; style its backdrop with `#consent-dialog::backdrop` |
-| `#results-list > li.result` | One row: `.result-rank`, `.result-name`, `.result-iso`, `.result-confidence`, `.result-local` ("Near you" badge), `.result-play` |
-| `.result-play[data-playing="true"]` | That sample is playing (also `aria-pressed="true"`) |
-| `.result-play[data-unavailable="true"]` | No sample, or the link is broken (the button is disabled) |
+| `#results-list > li.result` | One guess: `.result-name`, `.result-iso` (the model's code), `.result-confidence`, `.result-local` ("Near you" badge). `data-count` is how many languages it covers; `data-label` is the model's code; `data-rank` is the model's rank |
+| `li.result[data-count="1"] .result-play` | A guess that means one language gets a "Play sample" button (see below) |
+| `.result-varieties` | A guess covering several languages gets a native `<details>` instead: `<summary>` with `.result-variety-count`, then `ul.result-languages` |
+| `li.language` | One variety in that list: `.language-name`, `.language-local`, `.language-play` |
+| `#min-confidence`, `#min-confidence-value` | The confidence slider (`<input type="range">`) and the `<output>` showing its value |
 | `#results-summary`, `#location-status`, `#results-empty` | Status text |
+| `#test-playback` | **Testing only:** a player for the last recording, with `#test-playback-info` (length, size, format). Shown after recording when `showTestPlayback` is on in `js/config.js`; turn it off before real use |
 
 Views are hidden with the HTML `hidden` attribute. If the CSS gives a view
 `display: flex` or similar, add `[hidden] { display: none !important; }` so
@@ -140,11 +221,13 @@ hiding still works.
 
 ## Still to decide
 
-- **Model server.** Where `identify` posts, and whether the audio needs
-  converting first. The browser records WebM/Opus (MP4 on Safari). LAMP's
-  `serve.py` needs ffmpeg installed to read those. It reads WAV without
-  ffmpeg; converting to WAV in the browser is about 40 lines (there's an
-  example in `language-id-ux/widget/src/wav.ts`).
+- **Where the server runs** for real use: a field laptop or a cloud server.
+  It needs about 8 GB of RAM; a GPU makes it faster but isn't required (about
+  3 seconds per clip on this laptop's CPU). Phones reaching it over a network
+  need HTTPS for the microphone.
+- **An "unsure" state.** When the top guess is very low (under a few
+  percent), the model doesn't really know; the page could say so and lean on
+  location and the helper.
 - **Storage for consent answers and kept recordings.** For example, SQLite on
   the model server: set `consentUrl` and `recordingUrl` in `js/config.js`.
   Each consent answer is
@@ -155,3 +238,34 @@ hiding still works.
 - **GPS at the site.** Border towns can land in the wrong country (the
   borders are simplified). A migrant's location may not say much about their
   language. The browser's permission prompt is text.
+
+## Server settings
+
+Set these as environment variables before starting the server (in PowerShell,
+`$env:NAME = "value"`):
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `LID_IDENTIFIER` | `mms` | `mms` (Meta's model), `stub` (fixed answers, no model), or `lamp` (see below) |
+| `LID_MAX_AUDIO_SECONDS` | `20` | Longer recordings are trimmed |
+| `LID_CORS_ORIGINS` | none | Comma-separated addresses of other websites allowed to call `/predict`. Not needed for the page this server serves |
+| `LID_LAMP_URL` | `http://127.0.0.1:8001` | Where LAMP's server listens, in `lamp` mode |
+
+### Switching to LAMP
+
+The team chose Meta's model for now. To try GRN's LAMP model later, run LAMP's
+own server (`lid_finetune/scripts/model/serve.py` in the LAMP repo) on port
+8001, or the stand-in `server/tools/fake_lamp.py`. Then start this server with
+`LID_IDENTIFIER=lamp`. The page needs no changes: `js/results.js` already
+reads LAMP's GRN-ID output.
+
+## Playing language samples (not wired up)
+
+Another team member is building sample playback. This page has no playback
+code; the **"Play sample"** buttons (`.result-play` on a single-language guess,
+`.language-play` on each variety) are placeholders with nothing attached.
+
+To wire them up, the GRN language ID for a button is on the nearest list item:
+`button.closest('[data-id]').dataset.id`. `data/languages.json` still marks
+languages without a sample (`"noSample": true`), straight from the 5fish
+database.

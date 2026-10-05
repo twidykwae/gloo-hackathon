@@ -1,9 +1,13 @@
 """Build the static data files the page loads.
 
-    python tools/build_data.py path/to/database_5fish.db
+    python tools/build_data.py [path/to/database_5fish.db]
+
+The database defaults to tools/database_5fish.db (not in git; it's the 5fish
+apps' offline database, copied from the 2025 prototype).
 
 Writes:
-  data/languages.json      every GRN language: name, ISO code, parent, sample flag, countries
+  data/languages.json      every GRN language: name, ISO code, macrolanguage code, parent,
+                           sample flag, countries
   data/countries.geojson   country borders (Natural Earth 1:110m, public domain), trimmed,
                            used to turn GPS coordinates into a country code
 
@@ -39,14 +43,20 @@ def build_languages(db_path: Path) -> list[dict]:
         countries[language_id].append(code)
 
     languages = []
-    for grn_id, name, iso, parent_id, sample in conn.execute(
+    for grn_id, name, iso, macro, parent_id, sample in conn.execute(
         """
-        SELECT l.grn_language_id, l.default_language_name, i.iso_code, l.parent_id, l.audio_sample
-        FROM Languages l LEFT JOIN ISOList i ON i.iso_id = l.iso_id
+        SELECT l.grn_language_id, l.default_language_name, i.iso_code, m.iso_code, l.parent_id, l.audio_sample
+        FROM Languages l
+        LEFT JOIN ISOList i ON i.iso_id = l.iso_id
+        LEFT JOIN ISOList m ON m.iso_id = l.macro_iso_id
         ORDER BY l.grn_language_id
         """
     ):
         entry = {"id": grn_id, "name": name, "iso": iso}
+        # Umbrella code such as "que" (Quechua) or "ara" (Arabic). Meta's model
+        # sometimes answers with one, and it maps to these member languages.
+        if macro and macro != iso:
+            entry["macro"] = macro
         if parent_id is not None:
             entry["parent"] = parent_id
         if not sample:
@@ -85,9 +95,12 @@ def build_borders() -> dict:
 
 
 def main() -> None:
-    if len(sys.argv) != 2:
+    if len(sys.argv) > 2:
         sys.exit(__doc__)
-    languages = build_languages(Path(sys.argv[1]))
+    db_path = Path(sys.argv[1]) if len(sys.argv) == 2 else ROOT / "tools" / "database_5fish.db"
+    if not db_path.is_file():
+        sys.exit(f"Database not found: {db_path}\n\n{__doc__}")
+    languages = build_languages(db_path)
     (ROOT / "data" / "languages.json").write_text(
         json.dumps(languages, ensure_ascii=False, separators=(",", ":")), encoding="utf-8"
     )

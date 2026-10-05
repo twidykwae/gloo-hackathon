@@ -1,2 +1,8 @@
 node_modules/
 __pycache__/
+.venv/
+.pytest_cache/
+# The 5fish database (large, and not ours to publish); see tools/build_data.py.
+tools/database_5fish.db
+tests/
+data/samples

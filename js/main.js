@@ -1,18 +1,18 @@
-// Wires the page together. The flow, all on one URL:
-//
-//   idle --tap--> recording --tap or time limit--> consent popup
-//     (the recording is sent for identification the moment recording stops,
-//      so the model works while the person answers the consent question)
-//   consent answered --> waiting (spinner, only if results aren't back yet) --> results
-//
-// <body data-phase="..."> always shows the current phase, for styling.
-
 import { createBackend } from './backend.js'
 import { config } from './config.js'
 import { detectCountry } from './location.js'
-import { stopPlayback, toggle } from './player.js'
 import { startRecording } from './recorder.js'
-import { filterCandidates, firstPage, indexLanguages, isInCountry, summarize, toCandidates } from './results.js'
+import {
+  filterCandidates,
+  firstPage,
+  formatPercent,
+  indexLanguages,
+  isInCountry,
+  sliderToConfidence,
+  summarize,
+  toCandidates,
+  topConfidence,
+} from './results.js'
 
 const $ = (id) => document.getElementById(id)
 const el = {
@@ -24,6 +24,7 @@ const el = {
   resultsView: $('results-view'),
   filters: $('results-filters'),
   minConfidence: $('min-confidence'),
+  minConfidenceValue: $('min-confidence-value'),
   locationStatus: $('location-status'),
   summary: $('results-summary'),
   list: $('results-list'),
@@ -37,10 +38,14 @@ const el = {
   consentYes: $('consent-yes'),
   consentNo: $('consent-no'),
   rowTemplate: $('result-row'),
+  languageTemplate: $('language-row'),
+  testPlayback: $('test-playback'),
+  testPlaybackInfo: $('test-playback-info'),
+  testPlaybackAudio: $('test-playback-audio'),
 }
 
 const backend = createBackend(config)
-// Name, ISO code, sample flag and countries for every GRN language (tools/build_data.py).
+// Name, ISO code, parent and countries for every GRN language (tools/build_data.py).
 const languagesReady = fetch('data/languages.json')
   .then((r) => {
     if (!r.ok) throw new Error(`Could not load language data: ${r.status}`)
@@ -56,8 +61,10 @@ const state = {
   session: null,
   candidates: [],
   filters: { scope: 'all', minConfidence: 0 },
+  topConfidence: 0, // the best guess's score, the confidence slider's upper end
   shown: config.pageSize,
   location: null, // { code, name } once the "Near me" filter has found it
+  playbackUrl: null, // the last recording, when showTestPlayback is on
 }
 
 // ------------------------------------------------------------------ phases
@@ -82,6 +89,7 @@ function setPhase(phase) {
   el.recordButton.textContent = recording ? 'Stop recording' : 'Start recording'
   el.recordButton.disabled = phase === 'consent'
   el.recordTimer.hidden = !recording
+  el.testPlayback.hidden = !(state.playbackUrl && ['waiting', 'results', 'error'].includes(phase))
 }
 
 function showError(message) {
@@ -90,7 +98,7 @@ function showError(message) {
 }
 
 function reset() {
-  stopPlayback()
+  clearTestPlayback()
   state.recorder?.cancel()
   state.recorder = null
   state.session = null
@@ -129,9 +137,20 @@ async function finishRecording() {
   setPhase('consent')
   const recorder = state.recorder
   state.recorder = null
-  const recording = await recorder.stop()
+  const { blob: recording, seconds } = await recorder.stop()
+  showTestPlayback(recording, seconds) // before the length check, so short ones can be heard too
 
-  const session = { id: crypto.randomUUID(), recording, seconds: state.seconds, consent: null }
+  // A very short recording holds little or no audio: under about 0.3 s the
+  // browser can't even read it back, and the model needs a few seconds of speech.
+  if (seconds < config.minRecordingSeconds) {
+    showError(
+      `That recording was only ${seconds.toFixed(1)} seconds long. ` +
+        `Speak for at least ${config.minRecordingSeconds} seconds, then tap Stop.`,
+    )
+    return
+  }
+
+  const session = { id: crypto.randomUUID(), recording, seconds: Math.round(seconds * 10) / 10, consent: null }
   // Send for identification right away; the consent question covers the wait.
   session.results = Promise.all([backend.identify(recording), languagesReady]).then(([raw, languages]) => {
     console.info('Raw model response', raw)
@@ -192,49 +211,76 @@ async function showResultsWhenReady(session) {
   if (state.session !== session) return // started over meanwhile
   state.candidates = candidates
   state.shown = config.pageSize
+  // Each recording gets its own slider range, starting at "Any".
+  state.topConfidence = topConfidence(candidates)
+  el.minConfidence.value = '0'
+  setMinConfidence(0)
   renderResults()
   setPhase('results')
 }
 
+function visibleCandidates() {
+  return filterCandidates(state.candidates, { ...state.filters, country: state.location?.code ?? null })
+}
+
 function renderResults() {
-  stopPlayback()
   const country = state.location?.code ?? null
-  const visible = filterCandidates(state.candidates, { ...state.filters, country })
+  const visible = visibleCandidates()
   const page = firstPage(visible, state.shown)
 
+  // Guesses whose "varieties" list was open stay open after rebuilding.
+  const open = new Set(
+    [...el.list.querySelectorAll('li.result')]
+      .filter((row) => row.querySelector('.result-varieties')?.open)
+      .map((row) => row.dataset.label),
+  )
   el.list.replaceChildren(...page.rows.map((c) => renderRow(c, country)))
+  for (const row of el.list.querySelectorAll('li.result')) {
+    const varieties = row.querySelector('.result-varieties')
+    if (varieties && open.has(row.dataset.label)) varieties.open = true
+  }
   el.empty.hidden = visible.length > 0
   el.showMore.hidden = !page.hasMore
+  updateSummary(visible)
+}
 
+function updateSummary(visible) {
   const s = summarize(state.candidates, visible, state.shown)
-  el.summary.textContent =
-    `Showing ${s.shown} of ${s.matching} ${s.matching === 1 ? 'language' : 'languages'}` +
-    (s.unknown === 1
-      ? " (1 model result isn't in the 5fish catalog)"
-      : s.unknown > 1
-        ? ` (${s.unknown} model results aren't in the 5fish catalog)`
-        : '')
+  const count = (n) => n.toLocaleString()
+  el.summary.textContent = `Showing ${count(s.shown)} of ${count(s.matching)} ${s.matching === 1 ? 'result' : 'results'}`
 }
 
 function renderRow(candidate, country) {
   const row = el.rowTemplate.content.firstElementChild.cloneNode(true)
   const part = (name) => row.querySelector(`.result-${name}`)
-  row.dataset.id = String(candidate.id)
-  part('rank').textContent = String(candidate.rank)
-  part('name').textContent = candidate.name
-  part('iso').textContent = candidate.iso ?? ''
-  part('confidence').textContent = `${candidate.percent}%`
-  part('local').hidden = !(country && isInCountry(candidate, country))
+  const [only] = candidate.languages
+  const single = candidate.languages.length === 1
 
-  const play = part('play')
-  if (candidate.sampleUrl) {
-    play.addEventListener('click', () => toggle(play, candidate.sampleUrl))
+  row.dataset.label = candidate.label
+  row.dataset.count = String(candidate.languages.length)
+  row.dataset.rank = String(candidate.rank)
+  part('name').textContent = candidate.name
+  part('iso').textContent = single ? (only.iso ?? '') : candidate.label
+  part('confidence').textContent = formatPercent(candidate.percent)
+  part('local').hidden = !candidate.languages.some((lang) => isInCountry(lang, country))
+
+  if (single) {
+    row.dataset.id = String(only.id)
+    part('varieties').remove()
   } else {
-    play.disabled = true
-    play.dataset.unavailable = 'true'
-    play.textContent = 'No sample'
+    part('play').remove()
+    part('variety-count').textContent = String(candidate.languages.length)
+    part('languages').replaceChildren(...candidate.languages.map((lang) => renderLanguage(lang, country)))
   }
   return row
+}
+
+function renderLanguage(language, country) {
+  const item = el.languageTemplate.content.firstElementChild.cloneNode(true)
+  item.dataset.id = String(language.id)
+  item.querySelector('.language-name').textContent = language.name
+  item.querySelector('.language-local').hidden = !isInCountry(language, country)
+  return item
 }
 
 async function useLocation() {
@@ -253,18 +299,29 @@ async function useLocation() {
 }
 
 el.filters.addEventListener('change', async (e) => {
-  if (e.target.name === 'scope') {
-    if (e.target.value === 'local' && !(await useLocation())) {
-      el.filters.elements.scope.value = 'all'
-      return
-    }
-    state.filters.scope = e.target.value
-  } else if (e.target === el.minConfidence) {
-    state.filters.minConfidence = Number(el.minConfidence.value)
+  if (e.target.name !== 'scope') return
+  if (e.target.value === 'local' && !(await useLocation())) {
+    el.filters.elements.scope.value = 'all'
+    return
   }
+  state.filters.scope = e.target.value
   state.shown = config.pageSize
   renderResults()
 })
+
+function setMinConfidence(confidence) {
+  state.filters.minConfidence = confidence
+  el.minConfidenceValue.textContent = confidence ? `${formatPercent(confidence * 100)} or more` : 'Any'
+}
+
+// While dragging, only the value and the count update; rebuilding the list on
+// every step made the page jump. The list is rebuilt when the slider is let go.
+el.minConfidence.addEventListener('input', () => {
+  setMinConfidence(sliderToConfidence(Number(el.minConfidence.value), state.topConfidence))
+  state.shown = config.pageSize
+  updateSummary(visibleCandidates())
+})
+el.minConfidence.addEventListener('change', renderResults)
 el.filters.addEventListener('submit', (e) => e.preventDefault())
 
 el.showMore.addEventListener('click', () => {
@@ -276,3 +333,23 @@ el.errorRetry.addEventListener('click', reset)
 
 setPhase('idle')
 console.info(`Language ID: using the ${backend.name} backend`)
+
+// ---------------------------------------------------- test playback (testing only)
+
+function showTestPlayback(recording, seconds) {
+  if (!config.showTestPlayback) return
+  clearTestPlayback()
+  // A temporary browser-only address for the recording; nothing is uploaded.
+  state.playbackUrl = URL.createObjectURL(recording)
+  el.testPlaybackAudio.src = state.playbackUrl
+  el.testPlaybackInfo.textContent = `(${seconds.toFixed(1)} s, ${Math.round(recording.size / 1024)} KB, ${recording.type})`
+}
+
+function clearTestPlayback() {
+  el.testPlaybackAudio.pause()
+  el.testPlaybackAudio.removeAttribute('src')
+  el.testPlaybackInfo.textContent = ''
+  if (state.playbackUrl) URL.revokeObjectURL(state.playbackUrl)
+  state.playbackUrl = null
+}
+

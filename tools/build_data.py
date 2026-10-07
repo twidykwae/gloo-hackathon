@@ -11,7 +11,9 @@ Writes:
   data/countries.geojson   country borders (Natural Earth 1:110m, public domain), trimmed,
                            used to turn GPS coordinates into a country code
 
-Run it again whenever the 5fish database is updated.
+Run it again whenever the 5fish database is updated, then run
+tools/mark_samples.py: the 5fish database's sample flag says every language
+has one, so the sample flag written here is replaced by GRN's.
 """
 
 from __future__ import annotations

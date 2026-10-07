@@ -26,6 +26,12 @@ const LANGUAGES = [
   { id: 301, name: 'Quechua, Ayacucho', iso: 'quy', macro: 'que', countries: ['PE'] },
   { id: 400, name: 'Sindhi', iso: 'snd' },
   { id: 401, name: 'Charan', iso: 'snd', parent: 400, noSample: true },
+  // Headings (tools/mark_samples.py): no recording, only varieties that have one.
+  { id: 500, name: 'English', iso: 'eng', countries: ['GB', 'US'], noSample: true, heading: true },
+  { id: 501, name: 'English: USA', iso: 'eng', parent: 500 },
+  { id: 502, name: 'English: British', iso: 'eng', parent: 500 },
+  { id: 600, name: 'Kilega', iso: 'lea', countries: ['CD'], noSample: true, heading: true },
+  { id: 601, name: 'Kisonga', iso: 'lea', parent: 600 },
 ]
 const index = indexLanguages(LANGUAGES)
 
@@ -83,6 +89,20 @@ describe('toCandidates with ISO codes (Meta’s model)', () => {
       countries: [],
       parentCountries: ['MX'],
     })
+  })
+
+  it('leaves headings out of a guess’s languages, but names the guess after them', () => {
+    const [eng] = toCandidates({ label_kind: 'iso639_3', predictions: [{ label: 'eng', probability: 1 }] }, index)
+    assert.equal(eng.name, 'English')
+    assert.deepEqual(ids(eng.languages), [501, 502]) // shortest name first
+    // Varieties are still local where the heading is listed.
+    assert.deepEqual(eng.languages[0].parentCountries, ['GB', 'US'])
+  })
+
+  it('turns a heading with one variety into a single-language guess', () => {
+    const [lea] = toCandidates({ label_kind: 'iso639_3', predictions: [{ label: 'lea', probability: 1 }] }, index)
+    assert.equal(lea.name, 'Kilega')
+    assert.deepEqual(ids(lea.languages), [601])
   })
 
   it('marks languages without a sample recording', () => {

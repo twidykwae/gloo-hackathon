@@ -102,6 +102,7 @@ cd server
 | `data/countries.geojson` | Country borders (Natural Earth, public domain) for GPS to country, offline |
 | `data/samples/` | Saved model responses: real ones from Meta's model, plus a made-up LAMP-format one (see below) |
 | `tools/build_data.py` | Rebuilds the two data files from the 5fish database |
+| `tools/mark_samples.py` | Marks languages with no sample, and "headings", in `data/languages.json` from GRN's data export. Run it after `build_data.py` |
 | `tools/database_5fish.db` | The 5fish apps' offline database (not in git), read by `build_data.py` |
 | `server/app/main.py` | The server: `POST /predict` runs the model; also serves the page (`/`, `css/`, `js/`, `data/` only) |
 | `server/app/identifiers.py` | The models: Meta's MMS (default), LAMP (over HTTP), and a stub |
@@ -170,7 +171,15 @@ in `data/samples/`:
 
 - **Each guess lists the GRN languages it could mean,** from
   `data/languages.json`, shortest name first. On the page, a guess with one
-  language is a single row; one with several gets a "varieties" list.
+  language is a single row with its "Play sample" button; one with several
+  gets a "varieties" list.
+- **"Headings" aren't listed.** A heading is a language with no recording of
+  its own whose varieties have recordings: "English" (#5185) has none, but
+  "English: USA" does. `tools/mark_samples.py` marks the 336 headings
+  (`"heading": true`). A guess is still named after its heading, and its
+  varieties are still local where the heading is listed, but the heading
+  isn't one of its languages. So a heading with one variety (Kilega, with
+  Kisonga) becomes a single row.
 - **The guess is named after the language its varieties belong to**
   ("Sindhi", not its variety "Charan").
 - **`known: false`** means no GRN language matches the label. 151 of the
@@ -284,8 +293,10 @@ is the GRN language ID (the `id` in `data/languages.json`, not an ISO code).
 - **One sample at a time.** Tapping another button stops the one playing.
   Tapping the playing button again stops it. Playback also stops when the
   list is rebuilt (filters, "Show more") or on "Record again".
-- **No sample.** Languages the 5fish database marks `"noSample": true` get a
-  disabled "No sample" button. A sample that fails to load gets a disabled
+- **No sample.** Languages marked `"noSample": true` get a disabled "No
+  sample" button. That flag comes from GRN's data export, set by
+  `tools/mark_samples.py` (682 languages); the 5fish database says every
+  language has a sample, which isn't so. A sample that fails to load gets a disabled
   "Sample unavailable" button. Both are marked `data-sample="missing"`.
 - **Where samples come from** is `sampleUrl` in `js/config.js`:
   `/samples/{id}.mp3` on the server. For the page without the server

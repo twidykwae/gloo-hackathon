@@ -59,6 +59,16 @@ function groupName(langs) {
   return top[0]?.name ?? null
 }
 
+/**
+ * The languages a guess lists: not "headings" such as English (#5185), which
+ * have no recording of their own, only varieties ("English: USA") that do
+ * (tools/mark_samples.py). The guess is still named after the heading.
+ */
+function listed(matches) {
+  const varieties = matches.filter((lang) => !lang.heading)
+  return varieties.length > 0 ? varieties : matches
+}
+
 /** Convert a raw model response into guesses, keeping the model's order. */
 export function toCandidates(response, index) {
   const predictions = Array.isArray(response?.predictions) ? response.predictions : []
@@ -68,7 +78,7 @@ export function toCandidates(response, index) {
     const label = String(prediction.label ?? prediction.id)
     const confidence = Number(prediction.probability) || 0
     const matches = resolve(label, kind, index)
-    const languages = matches.map((lang) => toLanguage(lang, index)).sort(byName)
+    const languages = listed(matches).map((lang) => toLanguage(lang, index)).sort(byName)
     return {
       rank: i + 1,
       label,

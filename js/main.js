@@ -260,6 +260,8 @@ function renderRow(candidate, country) {
   const row = el.rowTemplate.content.firstElementChild.cloneNode(true)
   const part = (name) => row.querySelector(`.result-${name}`)
   const [only] = candidate.languages
+  // One language (for example a heading with a single variety): a plain row
+  // with its "Play sample" button, and no varieties list.
   const single = candidate.languages.length === 1
 
   row.dataset.label = candidate.label

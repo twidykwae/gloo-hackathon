@@ -164,6 +164,13 @@ Record ──▶ recording ──tap, or 20 s──▶ Detect + consent popup �
   On the last guess there's no Next. Dots show the first five
   (`compareCount`). Samples turn grey once heard. "Show all rankings" and the
   back button go to Rankings.
+- **Check-in.** Every 4th tap on Next (`checkInEvery` in `js/config.js`; 0
+  turns it off) shows "It looks like you are having trouble finding your
+  language." instead of the next guess, with three choices: "Keep going"
+  (on to that guess; the count starts again), "Try again" (back to Record)
+  and "This is a new dialect" (the new-dialect form, whose back button then
+  returns to the guess they were on). Only Next counts: not Previous, not
+  opening a guess from Rankings. The count starts again with each recording.
 - **Rankings.** Every guess as a card (see "The rankings screen"). Tapping a
   card opens it on the Sample screen. At the bottom, "No match, record
   again" and "None, enter new dialect".
@@ -189,7 +196,7 @@ Record ──▶ recording ──tap, or 20 s──▶ Detect + consent popup �
   "Try again".
 
 Body has `data-phase`: `idle`, `recording`, `consent`, `waiting`, `sample`,
-`results`, `resources`, `dialect`, `thanks` or `error`.
+`checkin`, `results`, `resources`, `dialect`, `thanks` or `error`.
 
 ## Model output and how it's converted
 
@@ -285,7 +292,8 @@ attributes and a few custom properties, listed here.
 
 | Hook | Meaning |
 | --- | --- |
-| `body[data-phase]` | `idle`, `recording`, `consent`, `waiting`, `sample`, `results`, `resources`, `dialect`, `thanks` or `error` |
+| `body[data-phase]` | `idle`, `recording`, `consent`, `waiting`, `sample`, `checkin`, `results`, `resources`, `dialect`, `thanks` or `error` |
+| `.checkin-actions .choice-button` | The check-in's three choices: a `.choice-icon` (`.arrow-icon`, `.dot-icon` or `.plus-icon`), `.choice-title` and `.choice-detail`. `.choice-main` is "Keep going", filled in |
 | `.results-end .outline-button` | The two buttons at the bottom of Rankings, each with an `.outline-icon` (`.dot-icon` or `.plus-icon`) |
 | `#dialect-form` | The new-dialect form: `.field`s with a `label` and an `input`. `#dialect-note` shows after a "No" to keeping the recording |
 | `.suggest > ul.suggestions` | A suggestion list under a box: `li.suggestion` with `.suggestion-label` and an optional `.suggestion-detail`; `[aria-selected="true"]` is the one picked with the arrow keys |
@@ -308,7 +316,6 @@ attributes and a few custom properties, listed here.
 | `.play-button[data-playing="true"]` | Its sample is playing; the CSS draws a square stop icon instead of the play triangle. `--icon` on a button sets the icon size |
 | `.play-button[data-sample="missing"]` | No sample to play: disabled, labelled "No sample" or "Sample unavailable" |
 | `#consent-dialog` | A native `<dialog>`; its backdrop is `#consent-dialog::backdrop` |
-| `#test-playback` | **Testing only:** a player for the last recording. Shown after recording when `showTestPlayback` is on in `js/config.js`; turn it off before real use |
 
 Views are hidden with the HTML `hidden` attribute; `[hidden]` is forced to
 `display: none` so it wins over `display: flex` rules.
@@ -332,7 +339,8 @@ Views are hidden with the HTML `hidden` attribute; `[hidden]` is forced to
   A choice with a kept recording (same `sessionId`) is a labelled training
   example: the recording, and the language its speaker picked. Each new
   dialect is
-  `{ sessionId, consent, parentLanguageId, parentLanguageName, dialectName, countryCode, countryName, modelGuesses, submittedAt }`;
+  `{ sessionId, consent, parentLanguageId, parentLanguageName, dialectName, countryCode, countryName, modelGuesses, guessesViewed, submittedAt }`
+  (`guessesViewed`: how many guesses they opened on the Sample screen first);
   `parentLanguageId` and `countryCode` are `null` when what was typed isn't
   a known language or country. With `consent: true` the kept recording has
   the same `sessionId`, so it's training data for a language the model

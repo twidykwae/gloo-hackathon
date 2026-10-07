@@ -179,6 +179,37 @@
         </div>
       </section>
 
+      <!-- Check-in: after every few taps on Next (checkInEvery in js/config.js). -->
+      <section id="checkin-view" class="screen" aria-labelledby="checkin-heading" hidden>
+        <div class="checkin-text">
+          <h2 id="checkin-heading" class="title checkin-title">It looks like you are having trouble finding your language.</h2>
+          <p class="checkin-lede">What would you like to do?</p>
+        </div>
+        <div class="checkin-actions">
+          <button type="button" id="checkin-next" class="choice-button choice-main">
+            <span class="choice-icon arrow-icon" aria-hidden="true"></span>
+            <span class="choice-text">
+              <span class="choice-title">Keep going</span>
+              <span class="choice-detail">Next – <span id="checkin-next-name"></span></span>
+            </span>
+          </button>
+          <button type="button" id="checkin-record" class="choice-button">
+            <span class="choice-icon dot-icon" aria-hidden="true"></span>
+            <span class="choice-text">
+              <span class="choice-title">Try again</span>
+              <span class="choice-detail">Make a new recording</span>
+            </span>
+          </button>
+          <button type="button" id="checkin-dialect" class="choice-button">
+            <span class="choice-icon plus-icon" aria-hidden="true"></span>
+            <span class="choice-text">
+              <span class="choice-title">This is a new dialect</span>
+              <span class="choice-detail">Submit it so we can learn it</span>
+            </span>
+          </button>
+        </div>
+      </section>
+
       <!-- 5. Resources for the chosen language. -->
       <section id="resources-view" class="screen" aria-labelledby="resources-heading" hidden>
         <div class="toolbar">
@@ -266,11 +297,6 @@
         <button type="button" id="error-retry" class="primary-button">Try again</button>
       </section>
 
-      <!-- Testing only (showTestPlayback in js/config.js): play back the last recording. -->
-      <aside id="test-playback" class="test-playback" hidden>
-        <p>Your recording <span id="test-playback-info"></span></p>
-        <audio id="test-playback-audio" controls></audio>
-      </aside>
     </main>
 
     <!-- Consent: shown as soon as recording stops, while the model works. -->

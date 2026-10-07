@@ -1598,6 +1598,112 @@ body:not([data-phase='recording']) .level::before {
     center / contain no-repeat;
 }
 
+/* ---------------------------------------------------------- check-in */
+
+.checkin-text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  justify-content: center;
+  padding: 0 8px;
+}
+
+.checkin-title {
+  margin: 0 0 12px;
+  font-size: 40px;
+}
+
+.checkin-lede {
+  margin: 0;
+  color: var(--muted);
+  font: 400 17px/1.45 var(--sans);
+}
+
+.checkin-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-top: 24px;
+}
+
+.choice-button {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-height: 72px;
+  padding: 14px 16px;
+  border: 1.5px solid var(--ink);
+  border-radius: 20px;
+  background: transparent;
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+  transition: transform 0.12s;
+}
+
+.choice-button:active {
+  transform: scale(0.98);
+}
+
+/* The first choice, "Keep going", is filled in. */
+.choice-main {
+  border-color: transparent;
+  background: var(--sand);
+}
+
+/* Bigger than the Rankings buttons' icons; the same dot and plus. */
+.choice-icon {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+}
+
+.choice-icon.dot-icon::before {
+  width: 12px;
+  height: 12px;
+}
+
+.choice-icon.plus-icon::before {
+  width: 16px;
+  height: 16px;
+}
+
+.arrow-icon {
+  background: var(--ink);
+}
+
+.arrow-icon::before {
+  content: '';
+  width: 16px;
+  height: 16px;
+  background: var(--paper);
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12h14'/%3E%3Cpath d='m12 5 7 7-7 7'/%3E%3C/svg%3E")
+    center / contain no-repeat;
+}
+
+.choice-text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.choice-title {
+  font: 600 16px var(--sans);
+}
+
+.choice-detail {
+  overflow: hidden;
+  font: 400 13px var(--sans);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  opacity: 0.7;
+}
+
 /* ------------------------------------------------------ 6. new dialect */
 
 .dialect-title {
@@ -1780,25 +1886,6 @@ body:not([data-phase='recording']) .level::before {
   display: flex;
   flex-direction: column;
   gap: 8px;
-}
-
-/* ------------------------------------------- test playback (testing only) */
-
-.test-playback {
-  margin-top: 24px;
-  padding: 12px;
-  border: 1px dashed var(--line);
-  border-radius: 16px;
-  color: var(--muted);
-  font: 400 12px var(--sans);
-}
-
-.test-playback p {
-  margin: 0 0 8px;
-}
-
-.test-playback audio {
-  width: 100%;
 }
 
 /* -------------------------------------------------------- animations */

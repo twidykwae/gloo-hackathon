@@ -40,14 +40,13 @@ export const config = {
   guideUrl: '/assistant/guide',
   chatUrl: '/assistant/chat',
 
-  // For testing: a player for the last recording, below the results. Turn this
-  // off before real users see the page.
-  showTestPlayback: true,
-
   minRecordingSeconds: 2, // shorter recordings aren't sent
   maxRecordingSeconds: 20,
   pageSize: 10,
   compareCount: 5, // the Sample screen's dots cover this many top guesses
+  // After this many taps on the Sample screen's Next, a check-in asks whether
+  // to keep going, record again or enter a new dialect. 0 turns it off.
+  checkInEvery: 4,
   mockDelayMs: 2500,
   // Real responses saved from the model server; see data/samples/.
   mockResponse: 'data/samples/mms-english.json',

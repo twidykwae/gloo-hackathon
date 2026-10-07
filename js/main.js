@@ -60,6 +60,12 @@ const el = {
   sampleNextHint: $('sample-next-hint'),
   sampleNextMatch: $('sample-next-match'),
   sampleNextName: $('sample-next-name'),
+  checkinView: $('checkin-view'),
+  checkinHeading: $('checkin-heading'),
+  checkinNext: $('checkin-next'),
+  checkinNextName: $('checkin-next-name'),
+  checkinRecord: $('checkin-record'),
+  checkinDialect: $('checkin-dialect'),
   resourcesView: $('resources-view'),
   resourcesBack: $('resources-back'),
   resourcesEyebrow: $('resources-eyebrow'),
@@ -105,9 +111,6 @@ const el = {
   dialectTemplate: $('dialect-template'),
   sampleDialectTemplate: $('sample-dialect-template'),
   resourceTemplate: $('resource-template'),
-  testPlayback: $('test-playback'),
-  testPlaybackInfo: $('test-playback-info'),
-  testPlaybackAudio: $('test-playback-audio'),
 }
 
 const backend = createBackend(config)
@@ -137,9 +140,10 @@ const state = {
   // Where Resources' back button goes: the Sample screen, or the new-dialect form.
   resourcesFrom: 'sample',
   sampleIndex: 0, // the guess on the Sample screen, in state.candidates
+  nextTaps: 0, // taps on the Sample screen's Next since the last check-in
+  dialectFrom: 'rankings', // where the new-dialect form's back button goes: 'rankings' or 'sample'
   seen: new Set(), // guesses opened on the Sample screen, by index
   played: new Set(), // GRN IDs whose sample was played, this recording
-  playbackUrl: null, // the last recording, when showTestPlayback is on
   sampleButton: null, // the play button whose sample is playing
 }
 
@@ -157,6 +161,7 @@ const VIEW_FOR_PHASE = {
   consent: 'detectView', // behind the consent popup
   waiting: 'detectView',
   sample: 'sampleView',
+  checkin: 'checkinView',
   results: 'resultsView',
   resources: 'resourcesView',
   dialect: 'dialectView',
@@ -172,6 +177,7 @@ const STEP_FOR_PHASE = {
   waiting: 'Step 2 of 3',
   results: 'Step 3 of 3',
   sample: '',
+  checkin: '',
   resources: '',
   dialect: '',
   thanks: '',
@@ -200,7 +206,6 @@ function setPhase(phase) {
     el.recordHint.textContent = RECORD_HINTS.idle
   }
   if (recording) el.recordHint.textContent = RECORD_HINTS.recording
-  el.testPlayback.hidden = !(state.playbackUrl && ['waiting', 'sample', 'results', 'error'].includes(phase))
 }
 
 /** Moves keyboard and screen-reader focus to a new screen's heading. */
@@ -216,7 +221,6 @@ function showError(message) {
 
 function reset() {
   stopSample()
-  clearTestPlayback()
   state.recorder?.cancel()
   state.recorder = null
   state.session?.controller.abort()
@@ -224,6 +228,7 @@ function reset() {
   state.candidates = []
   state.shown = config.pageSize
   state.sampleIndex = 0
+  state.nextTaps = 0
   state.seen.clear()
   state.played.clear()
   clearDialectForm()
@@ -281,7 +286,6 @@ async function finishRecording() {
   const recorder = state.recorder
   state.recorder = null
   const { blob: recording, seconds } = await recorder.stop()
-  showTestPlayback(recording, seconds) // before the length check, so short ones can be heard too
 
   // A very short recording holds little or no audio: under about 0.3 s the
   // browser can't even read it back, and the model needs a few seconds of speech.
@@ -538,7 +542,7 @@ el.showMore.addEventListener('click', () => {
   renderResults()
 })
 el.recordAgain.addEventListener('click', reset)
-el.newDialect.addEventListener('click', () => showDialectForm())
+el.newDialect.addEventListener('click', () => showDialectForm({ from: 'rankings' }))
 el.errorRetry.addEventListener('click', reset)
 
 // ------------------------------------------------------------- sample screen
@@ -669,7 +673,27 @@ function readySampleButton(button, id) {
 
 el.sampleAll.addEventListener('click', showRankings)
 el.samplePrev.addEventListener('click', () => showSample(state.sampleIndex - 1))
-el.sampleNext.addEventListener('click', () => showSample(state.sampleIndex + 1))
+el.sampleNext.addEventListener('click', () => {
+  // Every few Nexts, check in: they may not find their language this way.
+  state.nextTaps += 1
+  if (config.checkInEvery > 0 && state.nextTaps >= config.checkInEvery) showCheckIn()
+  else showSample(state.sampleIndex + 1)
+})
+
+// --------------------------------------------------------------- check-in
+
+function showCheckIn() {
+  stopSample()
+  state.nextTaps = 0
+  el.checkinNextName.textContent = state.candidates[state.sampleIndex + 1].name
+  setPhase('checkin')
+  window.scrollTo(0, 0)
+  focusHeading(el.checkinHeading)
+}
+
+el.checkinNext.addEventListener('click', () => showSample(state.sampleIndex + 1))
+el.checkinRecord.addEventListener('click', reset)
+el.checkinDialect.addEventListener('click', () => showDialectForm({ from: 'sample' }))
 
 el.sampleChoose.addEventListener('click', () => {
   const candidate = state.candidates[state.sampleIndex]
@@ -1006,8 +1030,14 @@ function updateDialectSubmit() {
 }
 el.dialectForm.addEventListener('input', updateDialectSubmit)
 
-function showDialectForm() {
+/** `from`: where its back button goes. Coming back from Resources keeps the last one. */
+function showDialectForm({ from = state.dialectFrom } = {}) {
   stopSample()
+  state.dialectFrom = from
+  el.dialectBack.setAttribute(
+    'aria-label',
+    from === 'sample' ? `Back to ${state.candidates[state.sampleIndex]?.name ?? 'the last match'}` : 'Back to all rankings',
+  )
   el.dialectNote.hidden = state.session?.consent !== false
   // The country "Near me" found, if it was used.
   if (!el.dialectCountry.value && state.location?.code) {
@@ -1051,6 +1081,8 @@ el.dialectForm.addEventListener('submit', (e) => {
     countryName: country?.name ?? countryText,
     // What the model heard, for whoever reviews it.
     modelGuesses: state.candidates.slice(0, 5).map((c) => ({ label: c.label, name: c.name, confidence: c.confidence })),
+    // How many guesses they opened on the Sample screen before giving up on the list.
+    guessesViewed: state.seen.size,
     submittedAt: new Date().toISOString(),
   }
   backend.saveNewDialect(report).catch((err) => console.error('Saving the new dialect failed', err))
@@ -1072,7 +1104,9 @@ function showThanks(report) {
   focusHeading(el.thanksHeading)
 }
 
-el.dialectBack.addEventListener('click', showRankings)
+el.dialectBack.addEventListener('click', () =>
+  state.dialectFrom === 'sample' ? showSample(state.sampleIndex) : showRankings(),
+)
 el.thanksBack.addEventListener('click', showRankings)
 el.thanksRestart.addEventListener('click', reset)
 
@@ -1138,22 +1172,3 @@ samplePlayer.addEventListener('error', () => {
 
 setPhase('idle')
 console.info(`Language ID: using the ${backend.name} backend`)
-
-// ---------------------------------------------------- test playback (testing only)
-
-function showTestPlayback(recording, seconds) {
-  if (!config.showTestPlayback) return
-  clearTestPlayback()
-  // A temporary browser-only address for the recording; nothing is uploaded.
-  state.playbackUrl = URL.createObjectURL(recording)
-  el.testPlaybackAudio.src = state.playbackUrl
-  el.testPlaybackInfo.textContent = `(${seconds.toFixed(1)} s, ${Math.round(recording.size / 1024)} KB, ${recording.type})`
-}
-
-function clearTestPlayback() {
-  el.testPlaybackAudio.pause()
-  el.testPlaybackAudio.removeAttribute('src')
-  el.testPlaybackInfo.textContent = ''
-  if (state.playbackUrl) URL.revokeObjectURL(state.playbackUrl)
-  state.playbackUrl = null
-}

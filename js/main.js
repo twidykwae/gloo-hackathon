@@ -51,9 +51,10 @@ const el = {
   detectCancel: $('detect-cancel'),
   resultsView: $('results-view'),
   nearMe: $('near-me'),
-  locationStatus: $('location-status'),
+  nearCountry: $('near-country'),
   list: $('results-list'),
   empty: $('results-empty'),
+  nearEmpty: $('results-near-empty'),
   showMore: $('show-more'),
   recordAgain: $('record-again'),
   newDialect: $('new-dialect'),
@@ -146,8 +147,9 @@ const state = {
   candidates: [], // the guesses the catalog knows, in the model's order
   topConfidence: 0, // the best guess's score: a full-strength match ring
   shown: config.pageSize,
-  nearMe: false, // the "Near me" chip is on
-  location: null, // { code, name } once "Near me" has found it
+  nearMe: false, // the "Near" switch is on
+  location: null, // { code, name } once "Near" has found it
+  nearCountry: null, // { code, name } "Near" filters by: where they are, unless they pick another
   // Gloo AI on the Resources screen, for one language at a time.
   assistant: { languageId: null, log: [], busy: false },
   // Where Resources' back button goes: the Sample screen, or the new-dialect form.
@@ -453,8 +455,9 @@ async function showResultsWhenReady(session) {
 /** Back to the ranked list, scrolled to the guess the Sample screen was on. */
 function showRankings() {
   stopSample()
-  if (state.sampleIndex >= state.shown) {
-    state.shown = Math.ceil((state.sampleIndex + 1) / config.pageSize) * config.pageSize
+  const place = shownIndexes().indexOf(state.sampleIndex)
+  if (place >= state.shown) {
+    state.shown = Math.ceil((place + 1) / config.pageSize) * config.pageSize
     renderResults()
   }
   setPhase('results')
@@ -465,18 +468,34 @@ function showRankings() {
   focusHeading($('results-heading'))
 }
 
-const nearCountry = () => (state.nearMe ? (state.location?.code ?? null) : null)
+const nearCountry = () => (state.nearMe ? (state.nearCountry?.code ?? null) : null)
+
+/** Places in state.candidates of the guesses on the list: with "Near" on, only those spoken in the country. */
+function shownIndexes() {
+  const country = nearCountry()
+  return state.candidates
+    .map((c, i) => (!country || c.languages.some((lang) => isInCountry(lang, country)) ? i : -1))
+    .filter((i) => i >= 0)
+}
+
+/** The next guess on the list after `index`, going `step` (1 or -1) at a time; -1 when there is none. */
+function shownStep(index, step) {
+  const shown = shownIndexes()
+  return (step > 0 ? shown.find((i) => i > index) : shown.findLast((i) => i < index)) ?? -1
+}
 
 function renderResults() {
-  const country = nearCountry()
-  const page = firstPage(state.candidates, state.shown)
+  const rows = shownIndexes().map((i) => state.candidates[i])
+  const page = firstPage(rows, state.shown)
   stopSample() // its button is about to be replaced
-  el.list.replaceChildren(...page.rows.map((c, i) => renderCard(c, i, country)))
+  showNearCountry()
+  el.list.replaceChildren(...page.rows.map((c, i) => renderCard(c, i)))
   el.empty.hidden = state.candidates.length > 0
+  el.nearEmpty.hidden = state.candidates.length === 0 || rows.length > 0
   el.showMore.hidden = !page.hasMore
 }
 
-function renderCard(candidate, index, country) {
+function renderCard(candidate, index) {
   const card = el.cardTemplate.content.firstElementChild.cloneNode(true)
   const part = (name) => card.querySelector(`.card-${name}`)
 
@@ -488,7 +507,6 @@ function renderCard(candidate, index, country) {
   // The name in the device's language, with the language's own name below when we know it.
   const ownLang = /^[a-z]{3}$/.test(candidate.label) ? candidate.label : ''
   if (!showNames(part('name'), part('subname'), candidate, ownLang)) part('subname').remove()
-  part('local').hidden = !candidate.languages.some((lang) => isInCountry(lang, country))
 
   showMatch(card.querySelector('.match'), candidate)
 
@@ -505,30 +523,59 @@ el.list.addEventListener('click', (e) => {
   if (card) showSample(state.candidates.findIndex((c) => c.label === card.dataset.label))
 })
 
+/** Looks up where they are, once; meanwhile the dropdown stays blank and nothing is hidden. */
 async function useLocation() {
-  if (state.location) return true
-  el.locationStatus.textContent = 'Finding your location…'
+  if (state.location) return
   try {
     const found = await detectCountry()
     if (!found.code) throw new Error('Your location is not inside a known country')
     state.location = found
-    return true
   } catch (err) {
-    el.locationStatus.textContent = `Could not use your location: ${err.message}`
-    return false
+    console.warn('Could not use the location', err) // the dropdown stays blank for them to pick
+    return
   }
+  if (state.nearCountry) return // they already picked one
+  state.nearCountry = state.location
+  showNearCountry()
+  if (!state.nearMe) return
+  state.shown = config.pageSize
+  renderResults()
 }
 
-el.nearMe.addEventListener('click', async () => {
-  if (!state.nearMe) {
-    el.nearMe.disabled = true
-    const found = await useLocation()
-    el.nearMe.disabled = false
-    if (!found) return
-  }
+el.nearMe.addEventListener('click', () => {
   state.nearMe = !state.nearMe
   el.nearMe.setAttribute('aria-pressed', String(state.nearMe))
-  el.locationStatus.textContent = state.nearMe ? `Marking languages spoken in ${state.location.name}` : ''
+  if (state.nearMe && !state.nearCountry) useLocation()
+  state.shown = config.pageSize
+  renderResults()
+})
+
+/** Fills the country dropdown the first time, and sets it to the country being filtered by, or blank. */
+function showNearCountry() {
+  if (!el.nearCountry.options.length) {
+    // Shown until the location is found or they pick one.
+    const blank = new Option('select country', '')
+    blank.disabled = true
+    el.nearCountry.replaceChildren(blank, ...countries.map(({ code, name }) => new Option(name, code)))
+  }
+  const country = state.nearCountry
+  // The borders file may know a country the browser's list doesn't.
+  if (country && ![...el.nearCountry.options].some((option) => option.value === country.code)) {
+    el.nearCountry.add(new Option(country.name, country.code))
+  }
+  el.nearCountry.value = country?.code ?? ''
+  el.nearCountry.options[0].hidden = Boolean(country)
+  el.nearCountry.classList.toggle('empty', !country)
+}
+
+el.nearCountry.addEventListener('change', () => {
+  const option = el.nearCountry.selectedOptions[0]
+  state.nearCountry = { code: option.value, name: option.text }
+  showNearCountry()
+  // Picking a country turns the filter on.
+  state.nearMe = true
+  el.nearMe.setAttribute('aria-pressed', 'true')
+  state.shown = config.pageSize
   renderResults()
 })
 
@@ -612,8 +659,8 @@ function renderSample() {
   }
 
   // Next previews the following guess; the last guess has none.
-  const next = state.candidates[index + 1]
-  el.samplePrev.disabled = index === 0
+  const next = state.candidates[shownStep(index, 1)]
+  el.samplePrev.disabled = shownStep(index, -1) === -1
   el.sampleNext.hidden = !next
   el.sampleNextHint.hidden = !next
   if (next) {
@@ -661,12 +708,12 @@ function readySampleButton(button, id) {
 }
 
 el.sampleAll.addEventListener('click', showRankings)
-el.samplePrev.addEventListener('click', () => showSample(state.sampleIndex - 1))
+el.samplePrev.addEventListener('click', () => showSample(shownStep(state.sampleIndex, -1)))
 el.sampleNext.addEventListener('click', () => {
   // Every few Nexts, check in: they may not find their language this way.
   state.nextTaps += 1
   if (config.checkInEvery > 0 && state.nextTaps >= config.checkInEvery) showCheckIn()
-  else showSample(state.sampleIndex + 1)
+  else showSample(shownStep(state.sampleIndex, 1))
 })
 
 // --------------------------------------------------------------- check-in
@@ -674,13 +721,13 @@ el.sampleNext.addEventListener('click', () => {
 function showCheckIn() {
   stopSample()
   state.nextTaps = 0
-  el.checkinNextName.textContent = shownName(state.candidates[state.sampleIndex + 1])
+  el.checkinNextName.textContent = shownName(state.candidates[shownStep(state.sampleIndex, 1)])
   setPhase('checkin')
   window.scrollTo(0, 0)
   focusHeading(el.checkinHeading)
 }
 
-el.checkinNext.addEventListener('click', () => showSample(state.sampleIndex + 1))
+el.checkinNext.addEventListener('click', () => showSample(shownStep(state.sampleIndex, 1)))
 el.checkinRecord.addEventListener('click', reset)
 el.checkinDialect.addEventListener('click', () => showDialectForm({ from: 'sample' }))
 
@@ -1044,7 +1091,7 @@ function showDialectForm({ from = state.dialectFrom } = {}) {
     from === 'sample' ? `Back to ${state.candidates[state.sampleIndex] ? shownName(state.candidates[state.sampleIndex]) : 'the last match'}` : 'Back to all rankings',
   )
   updateDialectNote()
-  // The country "Near me" found, if it was used.
+  // The country "Near" found, if it was used.
   if (!el.dialectCountry.value && state.location?.code) {
     const here = countries.find((country) => country.code === state.location.code)
     if (here) {

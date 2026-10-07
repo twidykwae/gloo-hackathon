@@ -5,8 +5,11 @@
 // tools/build_data.py). Works offline; nothing is sent to a third party.
 // Low-resolution borders can misplace points within a few km of a border.
 
-/** Ask the browser for the device position. Shows the browser's permission prompt. */
-export function getPosition({ timeoutMs = 15000 } = {}) {
+/**
+ * Ask the browser for the device position. Shows the browser's permission prompt.
+ * No time limit: nothing waits on it, and a Mac's first fix can take over 30 seconds.
+ */
+export function getPosition() {
   return new Promise((resolve, reject) => {
     if (!('geolocation' in navigator)) {
       reject(new Error('This browser has no location support'))
@@ -15,7 +18,7 @@ export function getPosition({ timeoutMs = 15000 } = {}) {
     navigator.geolocation.getCurrentPosition(
       (pos) => resolve({ lat: pos.coords.latitude, lon: pos.coords.longitude }),
       (err) => reject(new Error(err.code === err.PERMISSION_DENIED ? 'Location permission denied' : err.message)),
-      { enableHighAccuracy: false, timeout: timeoutMs, maximumAge: 10 * 60 * 1000 },
+      { enableHighAccuracy: false, maximumAge: 10 * 60 * 1000 },
     )
   })
 }

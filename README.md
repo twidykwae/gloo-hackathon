@@ -23,7 +23,7 @@ take them home on their own phone.
   with names shown in each language's own script where known (Русский, አማርኛ).
 - **Lets the person decide by ear.** It plays GRN's sample of each guess, one
   at a time or as a ranked list, including the dialects under each language.
-- **"Near me"** marks the languages spoken in the country the device is in.
+- **"Near [country]"** narrows the guesses to languages spoken in a country: the one the device is in, or any picked from the dropdown.
 - **Asks permission** before keeping a recording, to help the model learn
   languages it knows little about. Results never depend on the answer. Kept
   recordings, and each session's results, are stored on the computer running
@@ -39,7 +39,7 @@ take them home on their own phone.
 - **Page:** plain HTML, CSS and JavaScript, with no build step (`index.html`, `css/`, `js/`).
 - **Server:** Python with FastAPI (`server/`). It runs the model and serves the page, all from one command.
 - **Model:** Meta MMS-LID, run with PyTorch and Hugging Face Transformers, on the CPU or an Apple-silicon GPU.
-- **Data:** GRN's language catalog (`data/languages.json`) and country borders for "Near me", both included.
+- **Data:** GRN's language catalog (`data/languages.json`) and country borders for "Near", both included.
 
 ---
 
@@ -161,7 +161,7 @@ loads), then open **<http://localhost:8080>** in your browser. Press
    recordings, its Bible, and QR codes to open them on another phone.
 
 Identifying a recording takes about 3 seconds on a typical laptop CPU. The
-browser asks for microphone permission the first time; allow it. "Near me"
+browser asks for microphone permission the first time; allow it. "Near"
 asks for location permission.
 
 ---

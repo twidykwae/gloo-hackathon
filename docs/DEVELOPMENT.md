@@ -189,7 +189,7 @@ Record ──▶ recording ──tap, or 20 s──▶ Detect ──────
   name and country, all three needed. The parent language box suggests the
   model's top guesses before anything is typed, then searches the whole GRN
   catalog by English or native name. The country box suggests from every
-  country the browser knows, filled in from "Near me" if it found one. Both
+  country the browser knows, filled in from "Near" if it found one. Both
   still take anything typed. Submitting always saves a report
   (`backend.saveNewDialect`, see "Still to decide"). Then it opens Resources
   for the parent language ("Thank you! The closest we have"), or, if the
@@ -232,7 +232,7 @@ in `data/samples/`:
 - **Some labels are umbrella "macrolanguage" codes** (`ara`, `que`, `zho`).
   These map to their member languages.
 - **The full list matters.** A low-resource language can rank far down the
-  list overall; "Near me" marks it when it's spoken in the person's country.
+  list overall; "Near [country]" narrows the list to those spoken in the person's country.
 
 **Converted guess** (`toCandidates` in `js/results.js`), one per prediction:
 
@@ -300,7 +300,7 @@ studio recordings are the easy case.)
 | **Names** | The name in the device's language when GRN has it, else in English, with the language's own name under it when known (see "Which name is shown") |
 | **Match ring** | The model's confidence for the guess. Its color deepens with how close the guess is to the best one, so the top guess is always the strongest blue |
 | **Dialects** | Only counted: "9 dialects" under the name of a guess covering several GRN languages. The rankings show the languages, not their dialects; those are listed, with samples, on the Sample screen. No play button either, since a guess with several dialects has no sample of its own |
-| **Near me** | Asks for the location the first time, then marks guesses spoken in that country "Near you". It doesn't hide or reorder guesses. A variety counts if its parent language is listed. Tap again to turn it off |
+| **Near [country]** | A switch labelled "Near" followed by a country dropdown (`#near-country`) that says *select country* until there is one. Turning the switch on the first time asks for the location in the background and fills the dropdown in when it's found; if that fails, it keeps saying *select country* for them to pick. Picking a country also turns the switch on. Once there's a country, guesses not spoken in it are hidden, the rest kept in rank order, and Next and Previous on the Sample screen skip the hidden ones too. A variety counts if its parent language is listed. Picking a country only changes the filter, not the location saved with the recording. Tap the switch again to turn it off |
 | **Show more** | Shows 10 more cards. The first page is 10 (`pageSize` in `js/config.js`) |
 | **Tapping a card** | Anywhere on it: opens that guess on the Sample screen |
 | **No match, speak again** | Back to Record |
@@ -323,8 +323,8 @@ attributes and a few custom properties, listed here.
 | `.mic-ring-fill` | The ring that fills while recording, over `--max-recording` (set on `:root` from `maxRecordingSeconds`) |
 | `#record-level > span` | One bar each; `--level` is 0 to 1 |
 | `#detect-steps > li[data-state]` | `pending`, `active` or `done` |
-| `#near-me[aria-pressed="true"]` | "Near me" is on |
-| `#results-list > li.card` | One guess: `.card-open` (a button around `.card-name` and `.card-subname` that opens it on the Sample screen), `.card-name` (in the device's language), `.card-subname` (the language's own name, only when known and different), `.card-count` ("9 dialects", only with several; plain text, not a dropdown), `.card-local` ("Near you"), `.match`. `data-label` is the model's code, `data-rank` its rank, `data-count` how many languages it covers. `--i` is its place on the page, for staggering the fade-in |
+| `#near-me[aria-pressed="true"]` | "Near" is on |
+| `#results-list > li.card` | One guess: `.card-open` (a button around `.card-name` and `.card-subname` that opens it on the Sample screen), `.card-name` (in the device's language), `.card-subname` (the language's own name, only when known and different), `.card-count` ("9 dialects", only with several; plain text, not a dropdown), `.match`. `data-label` is the model's code, `data-rank` its rank, `data-count` how many languages it covers. `--i` is its place on the page, for staggering the fade-in |
 | `.match` | The match ring: `--pct` (0 to 100) fills it, `--strength` (0 to 1) colors it |
 | `#sample-dots > li` | `data-current="true"` for the guess on screen, `data-seen="true"` for ones already opened |
 | `#sample-single`, `#sample-dialects-block` | The Sample screen's two layouts: one language (big `#sample-play` and `#sample-wave`), or several (`li.sample-dialect` rows with `.choose-button`) |
@@ -444,7 +444,7 @@ is the GRN language ID (the `id` in `data/languages.json`, not an ISO code).
   `data-id` itself, a dialect's is on its list item.
 - **One sample at a time.** Tapping another button stops the one playing.
   Tapping the playing button again stops it. Playback also stops on changing
-  screens or guesses, when the list is rebuilt ("Near me", "Show more"), and
+  screens or guesses, when the list is rebuilt ("Near", "Show more"), and
   on "Speak again".
 - **No sample.** Languages marked `"noSample": true` get a disabled play
   button labelled "No sample". That flag comes from GRN's data export, set by

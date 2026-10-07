@@ -119,12 +119,17 @@
         <h2 id="results-heading" class="title">Which one sounds like you?</h2>
         <p class="lede">Ranked by match. Tap a language to hear its samples.</p>
         <div class="results-tools">
-          <!-- Asks for the location the first time; marks languages listed for that country. -->
-          <button type="button" id="near-me" class="chip" aria-pressed="false">Near me</button>
-          <p id="location-status" class="status" aria-live="polite"></p>
+          <!-- "Near [country]": the switch hides guesses not spoken in the country picked beside it.
+               The dropdown says "select country" until the location is found; picking a country turns the switch on. -->
+          <button type="button" id="near-me" class="switch" aria-pressed="false">
+            <span class="switch-track" aria-hidden="true"></span>
+            Near
+          </button>
+          <select id="near-country" class="inline-select" aria-label="Country"></select>
         </div>
         <ol id="results-list" class="cards"></ol>
         <p id="results-empty" class="lede" hidden>None of the model's guesses are in our catalog. Try recording again.</p>
+        <p id="results-near-empty" class="lede" hidden>None of the guesses are spoken in this country. Turn off "Near" to see them all.</p>
         <button type="button" id="show-more" class="secondary-button" hidden>Show more</button>
         <!-- When none of the guesses is right. -->
         <div class="results-end">
@@ -341,7 +346,6 @@
             <!-- "9 dialects": only a count; the dialects themselves are on the Sample screen. -->
             <span class="card-count"></span>
           </button>
-          <span class="card-local tag" hidden>Near you</span>
           <div class="match">
             <svg viewBox="0 0 52 52" aria-hidden="true">
               <circle class="match-track" cx="26" cy="26" r="22" pathLength="100" />

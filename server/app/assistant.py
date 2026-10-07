@@ -68,12 +68,23 @@ def note_language(iso: str | None, language: str, device: str | None) -> tuple[s
 
 
 def looks_broken(text: str, max_chars: int = 900) -> bool:
-    """A runaway answer: far too long, or the same few words over and over."""
+    """A runaway answer: far too long, or stuck repeating itself.
+
+    Natural repetition is fine: Twi asks all three questions with the same
+    opening ("Mɛnadɛn na ɛbɛma me..."), and notes say "in your language" more
+    than once. A loop repeats a long phrase over and over, so only a 6-word
+    phrase seen 3+ times, or text that is mostly repeats, counts.
+    """
     if len(text) > max_chars:
         return True
     words = text.lower().split()
-    grams = [" ".join(words[i : i + 4]) for i in range(len(words) - 3)]
-    return any(grams.count(g) > 2 for g in set(grams))
+    if len(words) < 12:
+        return False
+    six = [" ".join(words[i : i + 6]) for i in range(len(words) - 5)]
+    if any(six.count(g) > 2 for g in set(six)):
+        return True
+    four = [" ".join(words[i : i + 4]) for i in range(len(words) - 3)]
+    return len(set(four)) / len(four) < 0.6
 
 
 class AssistantError(Exception):

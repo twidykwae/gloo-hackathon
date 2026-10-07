@@ -34,6 +34,8 @@ function toLanguage(lang, index) {
     name: lang.name,
     // The name in the language itself ("Русский"), for the few the database has.
     native: lang.native ?? null,
+    // Its name in other languages, by tag ({ es: "Tzotzil de Chamula" }), for showing it in the device's (tools/add_names.py).
+    names: lang.names ?? {},
     iso: lang.iso ?? null,
     // false when GRN has no sample recording (tools/mark_samples.py).
     hasSample: !lang.noSample,
@@ -96,6 +98,7 @@ export function toCandidates(response, index) {
       percent: Math.round(confidence * 10000) / 100,
       name: lead?.name ?? null,
       native: lead?.native ?? null,
+      names: lead?.names ?? {},
       // GRN ID of the language the guess is named after (maybe a heading, such as English).
       leadId: lead?.id ?? null,
       // GRN ID of the sample for the guess as a whole; null if none of its languages has one.
@@ -150,6 +153,32 @@ export function matchStrength(confidence, top) {
 }
 
 /** A dialect's name inside its guess: "Chamula" for "Tzotzil: Chamula" under "Tzotzil". */
+/** The tags to look a name up by, most specific first: "es-MX" → ["es-MX", "es"]. */
+export function languageTags(locale) {
+  const tag = String(locale ?? '').trim()
+  if (!tag) return ['en']
+  const primary = tag.split('-')[0].toLowerCase()
+  return [...new Set([tag, primary])]
+}
+
+/**
+ * A language's name in the first of these languages GRN has one in, else its
+ * English name: names are always shown in the device's language, as far as
+ * GRN's names go.
+ */
+export function nameIn(language, tags) {
+  for (const tag of tags) {
+    if (tag === 'en' || tag.startsWith('en-')) return language.name
+    if (language.names?.[tag]) return language.names[tag]
+  }
+  return language.name
+}
+
+/**
+ * A dialect's name without its group's in front ("Chamula" in "Tzotzil:
+ * Chamula"), when the name starts with it. `language` and `groupName` are as
+ * shown, so in the device's language.
+ */
 export function shortName(language, groupName) {
   const prefix = groupName ? `${groupName}: ` : null
   return prefix && language.name.startsWith(prefix) && language.name.length > prefix.length

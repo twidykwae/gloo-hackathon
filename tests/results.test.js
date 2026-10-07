@@ -7,7 +7,9 @@ import {
   formatPercent,
   indexLanguages,
   isInCountry,
+  languageTags,
   matchStrength,
+  nameIn,
   nearFirst,
   resourceLinks,
   shortName,
@@ -88,6 +90,7 @@ describe('toCandidates with ISO codes (Meta’s model)', () => {
       id: 101,
       name: 'Tzotzil: Chamula',
       native: null,
+      names: {},
       iso: 'tzo',
       hasSample: true,
       countries: [],
@@ -254,6 +257,24 @@ describe('topConfidence and matchStrength', () => {
   it('matchStrength is 0 without a best score, and never over 1', () => {
     assert.equal(matchStrength(0.3, 0), 0)
     assert.equal(matchStrength(0.9, 0.6), 1)
+  })
+})
+
+describe('languageTags and nameIn', () => {
+  const chamula = { name: 'Tzotzil: Chamula', names: { es: 'Tzotzil de Chamula', 'zh-Hant': '佐齊爾語' } }
+
+  it('looks a name up by the full tag, then the language alone', () => {
+    assert.deepEqual(languageTags('es-MX'), ['es-MX', 'es'])
+    assert.deepEqual(languageTags('es'), ['es'])
+    assert.deepEqual(languageTags(''), ['en'])
+  })
+
+  it('names a language in the device language when GRN has that name, else in English', () => {
+    assert.equal(nameIn(chamula, languageTags('es-MX')), 'Tzotzil de Chamula')
+    assert.equal(nameIn(chamula, languageTags('zh-Hant')), '佐齊爾語')
+    assert.equal(nameIn(chamula, languageTags('fr-FR')), 'Tzotzil: Chamula')
+    assert.equal(nameIn(chamula, languageTags('en-US')), 'Tzotzil: Chamula')
+    assert.equal(nameIn({ name: 'Seneca' }, languageTags('es')), 'Seneca')
   })
 })
 

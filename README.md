@@ -114,6 +114,7 @@ cd server
 | `data/samples/` | Saved model responses: real ones from Meta's model, plus a made-up LAMP-format one (see below) |
 | `tools/build_data.py` | Rebuilds `data/languages.json` from the 5fish database, keeping the sample flags `mark_samples.py` wrote. Downloads the country borders only if the file is missing, or with `--borders` |
 | `tools/mark_samples.py` | Marks languages with no sample, and "headings", in `data/languages.json` from GRN's data export. Run it after `build_data.py` |
+| `tools/add_names.py` | Adds each language's names in other languages (`names`) to `data/languages.json` from GRN's languageNames export. Run it after `build_data.py` |
 | `tools/database_5fish.db` | The 5fish apps' offline database (not in git), read by `build_data.py` |
 | `server/app/main.py` | The server: `POST /predict` runs the model; also serves the page (`/`, `css/`, `js/`, `data/` only) |
 | `server/app/identifiers.py` | The models: Meta's MMS (default), LAMP (over HTTP), and a stub |
@@ -240,6 +241,16 @@ in `data/samples/`:
   name tagged as written in the language itself, else an untagged name in a
   non-Latin script. The second rule is a good guess, not a guarantee, and a
   few are odd ("简体中文", "Simplified Chinese", for Mandarin).
+- **`names`** is the name in other languages, by tag (`{ "es": "Tzotzil de
+  Chamula" }`), from GRN's languageNames export (`tools/add_names.py`):
+  2,537 of 6,816 languages have some, Spanish 599, French 533.
+- **Which name is shown.** Everywhere, a language's name is shown in the
+  device's language (`navigator.language`: `es-MX`, then `es`) when GRN has
+  it, else in English, with the language's own name (`native`) below when
+  known. The end screen is the exception: it tries the chosen language first,
+  so its title is the `native` name when known, and every word on it
+  ("Your choice:", the buttons, "Start over…") comes in the guide note's
+  language (see "Gloo AI"), which is the chosen language or else the device's.
 - **`sampleId`** is the GRN ID whose sample plays for the guess as a whole:
   the language it's named after, or, when that has no sample (a heading such
   as English), its first listed language that has one. `null` if none has.

@@ -1,9 +1,15 @@
 // Gloo AI on the Resources screen: the guide note and the chat. No DOM here,
 // so it's fully tested; main.js draws it.
 
-// The note and chat's own words, until the guide brings them in the person's
-// language (the server's LABELS in server/app/assistant.py).
+// Every word on the end screen, until the guide brings them in the person's
+// language (the server's LABELS in server/app/assistant.py). goTo keeps
+// {site}: the site's name isn't translated.
 export const DEFAULT_LABELS = {
+  choice: 'Your choice:',
+  closest: 'Thank you! The closest we have',
+  prompt: 'Point a camera or visit directly',
+  goTo: 'Go to {site}',
+  restart: 'Start over with a new recording',
   note: 'A note for you',
   chatTitle: 'Have a question?',
   chatLede: 'Ask about listening, sharing, or the Bible. Type in any language.',

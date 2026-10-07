@@ -13,13 +13,30 @@ import {
   formatPercent,
   indexLanguages,
   isInCountry,
+  languageTags,
   matchStrength,
+  nameIn,
   nearFirst,
   resourceLinks,
   shortName,
   toCandidates,
   topConfidence,
 } from './results.js'
+
+// Language names are shown in the device's language, as far as GRN has them,
+// else in English. Only the end screen tries the chosen language first.
+const deviceTags = languageTags(navigator.language)
+const shownName = (language) => nameIn(language, deviceTags)
+
+/** Fills a name and the language's own name below it (when known and different). */
+function showNames(nameEl, subnameEl, language, ownLang) {
+  const shown = shownName(language)
+  nameEl.textContent = shown
+  const own = language.native && language.native !== shown ? language.native : ''
+  subnameEl.textContent = own
+  subnameEl.lang = own ? ownLang : ''
+  return own
+}
 
 const $ = (id) => document.getElementById(id)
 const el = {
@@ -85,6 +102,7 @@ const el = {
   resourcesSubname: $('resources-subname'),
   resourcesList: $('resources-list'),
   resourcesRestart: $('resources-restart'),
+  resourcesPrompt: $('resources-prompt'),
   dialectView: $('dialect-view'),
   dialectHeading: $('dialect-heading'),
   dialectBack: $('dialect-back'),
@@ -139,6 +157,7 @@ const state = {
   assistant: { languageId: null, log: [], busy: false },
   // Where Resources' back button goes: the Sample screen, or the new-dialect form.
   resourcesFrom: 'sample',
+  resourcesEyebrow: 'choice', // the label above the title: 'choice', or 'closest' after a new dialect
   sampleIndex: 0, // the guess on the Sample screen, in state.candidates
   nextTaps: 0, // taps on the Sample screen's Next since the last check-in
   dialectFrom: 'rankings', // where the new-dialect form's back button goes: 'rankings' or 'sample'
@@ -438,15 +457,9 @@ function renderCard(candidate, index, country) {
   card.dataset.count = String(candidate.languages.length)
   card.style.setProperty('--i', String(index % config.pageSize)) // staggers the fade-in
 
-  // The name in the language itself when we know it, with the English name below.
-  if (candidate.native) {
-    part('name').textContent = candidate.native
-    if (/^[a-z]{3}$/.test(candidate.label)) part('name').lang = candidate.label
-    part('subname').textContent = candidate.name
-  } else {
-    part('name').textContent = candidate.name
-    part('subname').remove()
-  }
+  // The name in the device's language, with the language's own name below when we know it.
+  const ownLang = /^[a-z]{3}$/.test(candidate.label) ? candidate.label : ''
+  if (!showNames(part('name'), part('subname'), candidate, ownLang)) part('subname').remove()
   part('local').hidden = !candidate.languages.some((lang) => isInCountry(lang, country))
 
   showMatch(card.querySelector('.match'), candidate)
@@ -463,7 +476,7 @@ function renderCard(candidate, index, country) {
     const tagDialects = !candidate.languages.every((lang) => isInCountry(lang, country))
     dialects.replaceChildren(
       ...nearFirst(candidate.languages, country).map((lang) =>
-        renderDialect(lang, candidate.name, tagDialects ? country : null),
+        renderDialect(lang, shownName(candidate), tagDialects ? country : null),
       ),
     )
     setExpanded(card, state.expanded.has(candidate.label))
@@ -477,7 +490,7 @@ function renderCard(candidate, index, country) {
 function renderDialect(language, groupName, country) {
   const item = el.dialectTemplate.content.firstElementChild.cloneNode(true)
   item.dataset.id = String(language.id)
-  item.querySelector('.dialect-name').textContent = shortName(language, groupName)
+  item.querySelector('.dialect-name').textContent = shortName({ name: shownName(language) }, groupName)
   const region = item.querySelector('.dialect-region')
   region.textContent = describeCountries(language.countries)
   if (!region.textContent) region.remove()
@@ -594,15 +607,7 @@ function renderSample() {
   )
   el.samplePosition.textContent = index === 0 ? 'Best match' : `Match ${index + 1}`
 
-  if (candidate.native) {
-    el.sampleName.textContent = candidate.native
-    el.sampleName.lang = /^[a-z]{3}$/.test(candidate.label) ? candidate.label : ''
-    el.sampleSubname.textContent = candidate.name
-  } else {
-    el.sampleName.textContent = candidate.name
-    el.sampleName.lang = ''
-    el.sampleSubname.textContent = ''
-  }
+  showNames(el.sampleName, el.sampleSubname, candidate, /^[a-z]{3}$/.test(candidate.label) ? candidate.label : '')
   showMatch(el.sampleMatch, candidate)
 
   const several = candidate.languages.length > 1
@@ -614,7 +619,7 @@ function renderSample() {
     const tagDialects = !candidate.languages.every((lang) => isInCountry(lang, country))
     el.sampleDialects.replaceChildren(
       ...nearFirst(candidate.languages, country).map((lang) =>
-        renderSampleDialect(lang, candidate.name, tagDialects ? country : null),
+        renderSampleDialect(lang, shownName(candidate), tagDialects ? country : null),
       ),
     )
   } else {
@@ -629,8 +634,8 @@ function renderSample() {
   el.sampleNextHint.hidden = !next
   if (next) {
     showMatch(el.sampleNextMatch, next)
-    el.sampleNextName.textContent = next.name
-    el.sampleNext.setAttribute('aria-label', `Next match: ${next.name}, ${formatPercent(next.percent)}`)
+    el.sampleNextName.textContent = shownName(next)
+    el.sampleNext.setAttribute('aria-label', `Next match: ${shownName(next)}, ${formatPercent(next.percent)}`)
   }
 }
 
@@ -644,7 +649,7 @@ function showMatch(ring, candidate) {
 function renderSampleDialect(language, groupName, country) {
   const item = el.sampleDialectTemplate.content.firstElementChild.cloneNode(true)
   item.dataset.id = String(language.id)
-  item.querySelector('.dialect-name').textContent = shortName(language, groupName)
+  item.querySelector('.dialect-name').textContent = shortName({ name: shownName(language) }, groupName)
   const region = item.querySelector('.dialect-region')
   region.textContent = describeCountries(language.countries)
   if (!region.textContent) region.remove()
@@ -685,7 +690,7 @@ el.sampleNext.addEventListener('click', () => {
 function showCheckIn() {
   stopSample()
   state.nextTaps = 0
-  el.checkinNextName.textContent = state.candidates[state.sampleIndex + 1].name
+  el.checkinNextName.textContent = shownName(state.candidates[state.sampleIndex + 1])
   setPhase('checkin')
   window.scrollTo(0, 0)
   focusHeading(el.checkinHeading)
@@ -731,17 +736,18 @@ function choose(language, candidate) {
   showResources(language)
 }
 
-function showResources(language, { eyebrow = 'Your choice:' } = {}) {
-  el.resourcesEyebrow.textContent = eyebrow
-  if (language.native) {
-    el.resourcesHeading.textContent = language.native
-    el.resourcesHeading.lang = language.iso ?? ''
-    el.resourcesSubname.textContent = language.name
-  } else {
-    el.resourcesHeading.textContent = language.name
-    el.resourcesHeading.lang = ''
-    el.resourcesSubname.textContent = ''
-  }
+/**
+ * The end screen tries the chosen language first: the title is the language's
+ * own name when we know it, else its name in the device's language, and every
+ * word on the screen comes in the guide's language (see showLabels). `eyebrow`
+ * is a key in the labels: 'choice', or 'closest' after a new dialect.
+ */
+function showResources(language, { eyebrow = 'choice' } = {}) {
+  state.resourcesEyebrow = eyebrow
+  const deviceName = shownName(language)
+  el.resourcesHeading.textContent = language.native || deviceName
+  el.resourcesHeading.lang = language.native ? (language.iso ?? '') : ''
+  el.resourcesSubname.textContent = language.native && language.native !== deviceName ? deviceName : ''
   el.resourcesList.replaceChildren(...resourceLinks(language, config.resources).map(renderResource))
   el.resourcesList.dataset.languageId = String(language.id)
   setPhase('resources')
@@ -749,6 +755,7 @@ function showResources(language, { eyebrow = 'Your choice:' } = {}) {
   focusHeading(el.resourcesHeading)
   addBible(language)
   startAssistant(language)
+  showLabels(endLabels.words, endLabels.lang) // the eyebrow, and the words kept when it's the same language again
 }
 
 /** Adds the language's YouVersion Bible to the list, when there is one. */
@@ -771,7 +778,8 @@ function renderResource(link) {
   const item = el.resourceTemplate.content.firstElementChild.cloneNode(true)
   const button = item.querySelector('.resource-button')
   button.href = link.url
-  button.textContent = link.button
+  button.dataset.text = link.button // in English; showLabels translates it
+  button.textContent = buttonText(link.button)
   button.title = link.title
   const logo = item.querySelector('.resource-logo')
   if (link.logo) logo.src = link.logo
@@ -866,14 +874,33 @@ function ownName(tag) {
 }
 
 /** The note and chat's own words, in the guide's language. */
+// Every word on the end screen, in the guide's language once it arrives.
+let endLabels = { words: DEFAULT_LABELS, lang: 'en' }
+
 function showLabels(labels, lang) {
   const words = { ...DEFAULT_LABELS, ...labels }
+  endLabels = { words, lang }
+  el.resourcesEyebrow.textContent = words[state.resourcesEyebrow] ?? words.choice
+  el.resourcesPrompt.textContent = words.prompt
+  el.resourcesRestart.textContent = words.restart
+  for (const button of el.resourcesList.querySelectorAll('.resource-button')) {
+    button.textContent = buttonText(button.dataset.text)
+    button.lang = lang || ''
+  }
   el.guideLabel.textContent = words.note
   el.chatHeading.textContent = words.chatTitle
   el.chatLede.textContent = words.chatLede
   el.chatInput.placeholder = words.placeholder
   el.chatSend.setAttribute('aria-label', words.send)
-  for (const node of [el.guideLabel, el.chatHeading, el.chatLede, el.chatInput, el.chatSend]) node.lang = lang || ''
+  const nodes = [el.resourcesEyebrow, el.resourcesPrompt, el.resourcesRestart, el.guideLabel, el.chatHeading, el.chatLede, el.chatInput, el.chatSend]
+  for (const node of nodes) node.lang = lang || ''
+}
+
+/** "Go to 5fish" in the end screen's language; the site's name stays as it is. */
+function buttonText(english) {
+  const site = /^Go to (.+)$/.exec(english ?? '')?.[1]
+  const goTo = endLabels.words.goTo
+  return site && goTo.includes('{site}') ? goTo.replace('{site}', site) : english
 }
 
 function showSuggestions(questions, lang = '') {
@@ -978,7 +1005,7 @@ el.resourcesRestart.addEventListener('click', reset)
 const countries = countryList('en')
 const findCountry = countrySearch(countries)
 const countryNames = (country) => [country.name, country.code]
-const languageNames = (language) => [language.name, language.native]
+const languageNames = (language) => [language.name, language.native, ...Object.values(language.names ?? {})]
 let languageIndex = null
 let allLanguages = []
 let findLanguage = () => []
@@ -1003,7 +1030,7 @@ attachSuggestions(el.dialectParent, el.dialectParentList, {
   find: (text) => (fold(text) ? findLanguage(text, { minLength: 2 }) : topGuessLanguages()),
   // The native name tells similar names apart; without one, where it's spoken.
   describe: (language) => ({
-    label: language.name,
+    label: shownName(language),
     detail: language.native || describeCountries(language.countries ?? []),
     lang: language.native ? (language.iso ?? '') : '',
   }),
@@ -1023,7 +1050,7 @@ attachSuggestions(el.dialectCountry, el.dialectCountryList, {
 })
 
 el.dialectParent.addEventListener('input', () => {
-  if (dialectPicks.parent && el.dialectParent.value !== dialectPicks.parent.name) dialectPicks.parent = null
+  if (dialectPicks.parent && el.dialectParent.value !== shownName(dialectPicks.parent)) dialectPicks.parent = null
 })
 el.dialectCountry.addEventListener('input', () => {
   if (dialectPicks.country && el.dialectCountry.value !== dialectPicks.country.name) dialectPicks.country = null
@@ -1041,7 +1068,7 @@ function showDialectForm({ from = state.dialectFrom } = {}) {
   state.dialectFrom = from
   el.dialectBack.setAttribute(
     'aria-label',
-    from === 'sample' ? `Back to ${state.candidates[state.sampleIndex]?.name ?? 'the last match'}` : 'Back to all rankings',
+    from === 'sample' ? `Back to ${state.candidates[state.sampleIndex] ? shownName(state.candidates[state.sampleIndex]) : 'the last match'}` : 'Back to all rankings',
   )
   el.dialectNote.hidden = state.session?.consent !== false
   // The country "Near me" found, if it was used.
@@ -1094,7 +1121,7 @@ el.dialectForm.addEventListener('submit', (e) => {
   if (parent) {
     // Until it's in the catalog, the closest we have: the language it belongs to.
     state.resourcesFrom = 'dialect'
-    showResources(parent, { eyebrow: 'Thank you! The closest we have' })
+    showResources(parent, { eyebrow: 'closest' })
   } else {
     showThanks(report)
   }

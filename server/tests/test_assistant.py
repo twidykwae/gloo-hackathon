@@ -210,6 +210,8 @@ def test_chat_answers_lose_their_markdown(tmp_path):
 
 
 SPANISH_LABELS = (
+    "choice: Tu elección:\nclosest: ¡Gracias! Lo más parecido que tenemos\nprompt: Apunta una cámara o visita directamente\n"
+    "goTo: Ir a {site}\nrestart: Empezar de nuevo con otra grabación\n"
     "note: Una nota para ti\nchatTitle: ¿Tienes una pregunta?\n"
     "chatLede: Pregunta sobre escuchar, compartir o la Biblia.\nplaceholder: Haz una pregunta…\nsend: Enviar"
 )
@@ -246,7 +248,7 @@ def test_a_note_that_skips_the_resources_is_retried_then_dropped(tmp_path):
     calls = []
     with pytest.raises(AssistantError):
         fake_gloo(tmp_path, reply="¡Qué bendición tener la Palabra de Dios!", calls=calls).guide(TZOTZIL)
-    assert len(calls) == 3  # the chosen language twice, the device's (English here) once, then give up
+    assert len(calls) == 4  # the chosen language twice, the device's (English here) twice, then give up
 
 
 def test_the_note_must_name_youversion_only_when_there_is_a_bible(tmp_path):
@@ -256,7 +258,10 @@ def test_the_note_must_name_youversion_only_when_there_is_a_bible(tmp_path):
 
 
 def test_labels_are_matched_by_key_not_by_position(tmp_path):
-    shuffled = "send: Enviar\nnote: Una nota\nchatTitle: ¿Pregunta?\nchatLede: Escribe.\nplaceholder: Pregunta…"
+    shuffled = (
+        "send: Enviar\nnote: Una nota\nchatTitle: ¿Pregunta?\nchatLede: Escribe.\nplaceholder: Pregunta…\n"
+        "restart: Empezar\ngoTo: Ir a {site}\nprompt: Apunta\nclosest: Gracias\nchoice: Tu elección:"
+    )
     labels = fake_gloo(tmp_path, reply=shuffled).labels("es", "Spanish")
     assert labels["note"] == "Una nota" and labels["send"] == "Enviar"
 
@@ -271,7 +276,7 @@ def test_labels_use_the_direct_endpoint_and_the_rest_stay_guarded(tmp_path):
     def handler(request: httpx.Request) -> httpx.Response:
         urls.append(str(request.url))
         body = json.loads(request.content)
-        reply = SPANISH_LABELS if body["max_tokens"] == 200 else GUIDE_JSON
+        reply = SPANISH_LABELS if body["max_tokens"] == 350 else GUIDE_JSON
         if "direct" in str(request.url):
             assert "tradition" not in body
         return httpx.Response(200, json={"choices": [{"message": {"content": reply}}], "usage": {}})

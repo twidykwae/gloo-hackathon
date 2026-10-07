@@ -126,7 +126,7 @@ Only mention the resources in the facts. Do not invent features, links, or numbe
 the Bible is complete.
 Keep the whole note under 35 words. Write exactly these sentences, in this order:
 1. One short sentence: a warm welcome, and that on 5fish they can listen to Bible stories and songs in their \
-own language, even without internet.
+own language, even without internet. Write the name 5fish exactly like that.
 {bible_step}
 Then a line with only ---. Then 3 short questions, one per line, in {name}, that the person would tap to ask \
 you, an assistant, for help. Write them in the person's own voice (I, my), about using these resources or about \
@@ -134,7 +134,7 @@ the Bible, for example: How do I listen without internet? / Can I share this wit
 start listening? Never ask the person about themselves or their feelings."""
 
 BIBLE_STEP = "2. One short sentence inviting them to read the Bible in their own language in the free \
-YouVersion Bible App."
+YouVersion Bible App. Write the name YouVersion exactly like that."
 NO_BIBLE_STEP = "There is no Bible in their language on YouVersion yet, so do not mention any Bible app."
 
 
@@ -206,9 +206,14 @@ def _json_reply(content: str) -> dict:
         raise AssistantError(f"Gloo's answer wasn't valid JSON: {e}") from e
 
 
-# The chat and note's own words on the page, in English. The page shows these
-# until the translated ones arrive with the guide.
+# Every word on the end screen, in English: the page shows these until the
+# translated ones arrive with the guide (DEFAULT_LABELS in js/assistant.js).
 LABELS = {
+    "choice": "Your choice:",
+    "closest": "Thank you! The closest we have",
+    "prompt": "Point a camera or visit directly",
+    "goTo": "Go to {site}",
+    "restart": "Start over with a new recording",
     "note": "A note for you",
     "chatTitle": "Have a question?",
     "chatLede": "Ask about listening, sharing, or the Bible. Type in any language.",
@@ -219,7 +224,8 @@ LABELS = {
 LABELS_PROMPT = """Translate the text after each colon into {name} (language tag {tag}). These are labels \
 on a screen for people with little schooling, so use plain, natural words, and keep each label's meaning.
 Reply with exactly the same lines in the same "key: text" form: keep each key in English exactly as given, \
-and translate only the text after the colon. No other text."""
+and translate only the text after the colon. Keep anything in curly braces, such as {{site}}, exactly as it is. \
+No other text."""
 
 
 def parse_labels(content: str) -> dict | None:
@@ -320,13 +326,13 @@ class Assistant:
                 saved = json.loads(self.labels_file.read_text(encoding="utf-8"))
             except json.JSONDecodeError:
                 saved = {}
-        if tag not in saved:
+        if set(saved.get(tag, {})) != set(LABELS):  # new, or saved before labels were added
             content = self._complete(
                 [
                     {"role": "system", "content": LABELS_PROMPT.format(name=name, tag=tag, count=len(LABELS))},
                     {"role": "user", "content": "\n".join(f"{key}: {text}" for key, text in LABELS.items())},
                 ],
-                max_tokens=200,
+                max_tokens=350,
                 temperature=0.2,
                 guarded=False,
             )
@@ -345,10 +351,10 @@ class Assistant:
         key = (resources.language, resources.bible, resources.country, resources.device_language)
         if key not in self._guides:
             bible_step = BIBLE_STEP if resources.bible else NO_BIBLE_STEP
-            # The chosen language first (two tries), then the device's (one), if a note doesn't pass.
+            # The chosen language first, then the device's: two tries each, if a note doesn't pass.
             attempts = []
             for i, (tag, name) in enumerate(note_languages(resources.iso, resources.language, resources.device_language)):
-                attempts += [(tag, name, 0.4), (tag, name, 0.2)] if i == 0 else [(tag, name, 0.3)]
+                attempts += [(tag, name, 0.4), (tag, name, 0.2)] if i == 0 else [(tag, name, 0.3), (tag, name, 0.1)]
             for tag, name, temperature in attempts:
                 prompt = GUIDE_PROMPT.format(name=name, tag=tag, bible_step=bible_step)
                 content = self._complete(

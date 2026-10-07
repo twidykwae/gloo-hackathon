@@ -38,9 +38,12 @@ export function makeSearch(items, namesOf, { order = () => 0 } = {}) {
   }
 }
 
-/** Search GRN languages by English or native name; main languages before their varieties, then shorter names. */
+/**
+ * Search GRN languages by English or native name, or a name in another
+ * language (tools/add_names.py); main languages before their varieties, then shorter names.
+ */
 export function languageSearch(languages) {
-  return makeSearch(languages, (lang) => [lang.name, lang.native], {
+  return makeSearch(languages, (lang) => [lang.name, lang.native, ...Object.values(lang.names ?? {})], {
     order: (a, b) =>
       (a.parent != null) - (b.parent != null) || a.name.length - b.name.length || a.name.localeCompare(b.name),
   })

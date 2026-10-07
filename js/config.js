@@ -31,6 +31,10 @@ export const config = {
   // after the links above when there is one. null turns it off, for example
   // in mock mode without the server.
   bibleUrl: '/bible/{id}',
+  // Gloo AI on the same screen: a short guide note, and a chat for questions
+  // (the server's POST /assistant/guide and /assistant/chat). null hides them.
+  guideUrl: '/assistant/guide',
+  chatUrl: '/assistant/chat',
 
   // For testing: a player for the last recording, below the results. Turn this
   // off before real users see the page.

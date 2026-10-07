@@ -177,8 +177,33 @@
         <p class="eyebrow resources-eyebrow">You chose</p>
         <h2 id="resources-heading" class="title resources-title"></h2>
         <p id="resources-subname" class="lede"></p>
+
+        <!-- Gloo AI: a short note about these resources, in the language the person most likely reads. -->
+        <article id="guide" class="guide" data-state="loading" aria-labelledby="guide-label" aria-busy="true" hidden>
+          <p class="guide-head">
+            <span class="guide-mark" aria-hidden="true"></span>
+            <span id="guide-label" class="eyebrow guide-label">A note for you</span>
+            <span id="guide-language" class="guide-language"></span>
+          </p>
+          <div class="guide-skeleton" aria-hidden="true"><span></span><span></span><span></span></div>
+          <p id="guide-text" class="guide-text" aria-live="polite"></p>
+        </article>
+
         <p class="resources-prompt">Point a camera at a code to open it on another phone, or use the buttons.</p>
         <ul id="resources-list" class="resources"></ul>
+
+        <!-- Gloo AI: questions about these resources, answered in the language they're asked in. -->
+        <section id="chat" class="chat" aria-labelledby="chat-heading" hidden>
+          <h3 id="chat-heading" class="chat-title">Have a question?</h3>
+          <p id="chat-lede" class="chat-lede">Ask about listening, sharing, or the Bible. Type in any language.</p>
+          <ol id="chat-log" class="chat-log" aria-live="polite"></ol>
+          <div id="chat-suggestions" class="chat-suggestions" aria-label="Suggested questions"></div>
+          <form id="chat-form" class="chat-form">
+            <label for="chat-input" class="visually-hidden">Your question</label>
+            <textarea id="chat-input" class="chat-input" rows="1" maxlength="600" placeholder="Ask a question…" autocomplete="off"></textarea>
+            <button type="submit" id="chat-send" class="chat-send" aria-label="Send" disabled></button>
+          </form>
+        </section>
         <button type="button" id="resources-restart" class="link-button record-again">Start over with a new recording</button>
       </section>
 

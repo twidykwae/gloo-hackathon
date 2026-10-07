@@ -450,3 +450,40 @@ Bible on YouVersion. With the Wycliffe, Biblica and SIL "Fast-track" licenses
 agreed in the YouVersion portal, our key can show the text of all of them.
 Most of the rest have no Bible translation anywhere yet; for them, GRN's
 recordings on 5fish are the content.
+
+## Gloo AI: the guide note and the chat
+
+On the Resources screen, Gloo AI adds a short note above the links (what
+5fish and the Bible are, and how to use them) and a "Have a question?" chat
+below them. Both are hidden if Gloo isn't set up or fails.
+
+- **Which language.** The server picks it, not the model: a major language is
+  used as-is (Amharic gets Amharic); otherwise the country's national or most
+  widely understood language (Tzotzil in Mexico gets Spanish). Models write
+  badly in most minority languages; one looped on a Tzotzil phrase when asked
+  to choose. The table is `server/app/country_languages.json`. Chat answers
+  follow the language the person types in.
+- **Only real facts.** The server tells the model the language, the 5fish
+  link and the YouVersion Bible; the page can't add to them. Answers that
+  loop or run long are rejected, and markdown is stripped.
+- **Labels too.** The note's label and the chat's title, hint and placeholder
+  come back with the guide in the same language. They're translated once per
+  language and kept in `server/gloo-labels.json` (not in git). The chat stays
+  hidden until the guide arrives, so it doesn't flash in English first.
+- **Endpoints:** `POST /assistant/guide {grn_id, country?}` and
+  `POST /assistant/chat {grn_id, country?, messages}` (`server/app/assistant.py`).
+
+**Cost.** Gloo's guarded API adds about 11,500 tokens of its own instructions
+to every call, so each call costs about $0.0012 with the default model
+(`gloo-google-gemini-2.5-flash-lite`, $0.10 / $0.40 per million tokens,
+about 2 seconds). Guides are cached per language. Spending is counted from
+Gloo's token usage in `server/gloo-usage.json` (not in git) and stops at
+`GLOO_DAILY_BUDGET_USD` (default $1/day, about 800 calls).
+
+**Setup.** The Gloo key spends money, so unlike the YouVersion key it is never
+in git. Put it in `server/.env` and start the server with `--env-file .env`:
+
+```powershell
+"GLOO_API_KEY=sk_..." | Out-File -Encoding ascii -Append .env
+.venv\Scripts\python -m uvicorn app.main:create_app --factory --port 8080 --env-file .env
+```

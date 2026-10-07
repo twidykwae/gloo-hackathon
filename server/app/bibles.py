@@ -79,7 +79,7 @@ class YouVersion:
                 break
         if response.status_code in (401, 403):
             raise BibleLookupError(f"YouVersion refused the request ({response.status_code}); check the app key")
-        if response.status_code != 200:
+        if response.status_code not in (200, 204):  # 204: nothing found
             raise BibleLookupError(f"YouVersion returned {response.status_code} for {path}")
         # YouVersion answers a list with no matches with an empty body.
         return response.json() if response.content else {}

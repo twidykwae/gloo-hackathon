@@ -46,7 +46,7 @@ def fake_youversion(calls=None, status=200):
             return httpx.Response(200, json={"data": LICENSED})
         found = BIBLES.get(tag)
         # YouVersion answers "nothing found" with an empty body.
-        return httpx.Response(200, json={"data": found}) if found else httpx.Response(200, content=b"")
+        return httpx.Response(200, json={"data": found}) if found else httpx.Response(204)
 
     return YouVersion("test-key", GRN, http=httpx.Client(transport=httpx.MockTransport(handler)))
 

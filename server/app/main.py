@@ -9,11 +9,15 @@ then open http://localhost:8080.
     POST /predict      a recording in, the model's ranked guesses out
     GET  /samples/{id}.mp3   a GRN language's sample recording, downloaded once then cached
     GET  /bible/{id}   a GRN language's Bible on YouVersion: name, copyright, bible.com link
+    POST /assistant/guide   Gloo AI: a short note about the chosen language's resources
+    POST /assistant/chat    Gloo AI: answers questions about them
 """
 
 from __future__ import annotations
 
+import json
 import logging
+import re
 from pathlib import Path
 from typing import Annotated
 
@@ -21,6 +25,9 @@ from fastapi import FastAPI, File, HTTPException, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel, Field
+
+from .assistant import Assistant, AssistantError, Budget, OverBudget, Resources, clean_messages
 
 from .audio import TARGET_RATE, AudioError, read_wav
 from .bibles import BibleLookupError, UnknownLanguage, YouVersion, load_grn_languages
@@ -37,13 +44,33 @@ ALL_LABELS = 10_000
 PAGE_DIR = Path(__file__).resolve().parents[2]
 
 
+class GuideRequest(BaseModel):
+    grn_id: int
+    country: str | None = Field(default=None, description="ISO 3166 code of where the person is, if known")
+
+
+class ChatRequest(GuideRequest):
+    messages: list[dict] = Field(description="The conversation so far, ending with the person's question")
+
+
 def create_app(
-    settings: Settings | None = None, identifier: Identifier | None = None, youversion: YouVersion | None = None
+    settings: Settings | None = None,
+    identifier: Identifier | None = None,
+    youversion: YouVersion | None = None,
+    assistant: Assistant | None = None,
 ) -> FastAPI:
     settings = settings or load_settings()
     identifier = identifier or make_identifier(settings.identifier, settings.stub_labels, settings.lamp_url)
     if youversion is None and settings.youversion_app_key:
         youversion = YouVersion(settings.youversion_app_key, load_grn_languages(PAGE_DIR / "data" / "languages.json"))
+    if assistant is None and settings.gloo_api_key:
+        assistant = Assistant(
+            settings.gloo_api_key,
+            settings.gloo_model,
+            Budget(settings.gloo_usage_file, settings.gloo_daily_budget_usd, *settings.gloo_price_per_m),
+            labels_file=settings.gloo_labels_file,
+        )
+    grn_rows = {row["id"]: row for row in json.loads((PAGE_DIR / "data" / "languages.json").read_text(encoding="utf-8"))}
 
     app = FastAPI(title="Language ID", version="0.2.0")
     if settings.cors_origins:
@@ -110,6 +137,58 @@ def create_app(
         except BibleLookupError as e:
             logger.warning("Bible lookup failed: %s", e)
             raise HTTPException(502, str(e)) from e
+
+    def resources_for(request: GuideRequest) -> Resources:
+        """The facts the model is given, built here so the page can't change them."""
+        row = grn_rows.get(request.grn_id)
+        if row is None:
+            raise HTTPException(404, f"no GRN language {request.grn_id}")
+        bible = None
+        if youversion is not None:
+            try:
+                found = youversion.bible_for(request.grn_id)["bible"]
+            except (BibleLookupError, UnknownLanguage):
+                found = None
+            if found:
+                names = [found.get("localized_title"), found.get("title")]
+                bible = " / ".join(dict.fromkeys(n for n in names if n)) + f" ({found.get('abbreviation')})"
+        country = (request.country or "").upper()
+        return Resources(
+            language=row["name"],
+            native=row.get("native"),
+            iso=row.get("iso") or row.get("macro"),
+            countries=row.get("countries") or [],
+            content_url=f"https://5fish.mobi/{request.grn_id}",
+            bible=bible,
+            country=country if re.fullmatch(r"[A-Z]{2}", country) else None,
+        )
+
+    def ask(call):
+        if assistant is None:
+            raise HTTPException(503, "Gloo AI isn't set up: set GLOO_API_KEY")
+        try:
+            return call()
+        except OverBudget as e:
+            raise HTTPException(429, str(e)) from e
+        except AssistantError as e:
+            logger.warning("Gloo failed: %s", e)
+            raise HTTPException(502, str(e)) from e
+
+    @app.post("/assistant/guide")
+    def guide(request: GuideRequest) -> dict:
+        """A short note, in the language the person most likely reads, about their resources."""
+        resources = resources_for(request)
+        return ask(lambda: assistant.guide(resources))
+
+    @app.post("/assistant/chat")
+    def chat(request: ChatRequest) -> dict:
+        """The assistant's answer to the last question in the conversation."""
+        resources = resources_for(request)
+        try:
+            messages = clean_messages(request.messages)
+        except ValueError as e:
+            raise HTTPException(400, str(e)) from e
+        return {"reply": ask(lambda: assistant.chat(resources, messages))}
 
     @app.middleware("http")
     async def always_check_for_newer_files(request, call_next):

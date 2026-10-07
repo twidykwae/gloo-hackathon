@@ -36,6 +36,18 @@ class Settings:
     youversion_app_key: str = "caf5vTyeQhy1lLHtQjaAS5oKqnpssGB2DGRi2fl7ASSVIZus"
 
 
+    # Gloo AI, for the Resources screen's guide and chat. The key costs money
+    # per call, so it is never in git: set GLOO_API_KEY (server/.env). Empty
+    # turns both off.
+    gloo_api_key: str = ""
+    # Named explicitly so Gloo never routes to a pricier model. Its price per
+    # million tokens (input, output) counts spending against the daily budget.
+    gloo_model: str = "gloo-google-gemini-2.5-flash-lite"
+    gloo_price_per_m: tuple[float, float] = (0.10, 0.40)
+    gloo_daily_budget_usd: float = 1.0
+    gloo_usage_file: Path = PAGE_DIR / "server" / "gloo-usage.json"
+    gloo_labels_file: Path = PAGE_DIR / "server" / "gloo-labels.json"
+
 def load_settings() -> Settings:
     env = os.environ.get
     defaults = Settings()
@@ -47,4 +59,7 @@ def load_settings() -> Settings:
         cors_origins=[o.strip() for o in env("LID_CORS_ORIGINS", "").split(",") if o.strip()],
         samples_dir=Path(env("LID_SAMPLES_DIR", defaults.samples_dir)),
         youversion_app_key=env("YVP_APP_KEY", defaults.youversion_app_key),
+        gloo_api_key=env("GLOO_API_KEY", defaults.gloo_api_key),
+        gloo_model=env("GLOO_MODEL", defaults.gloo_model),
+        gloo_daily_budget_usd=float(env("GLOO_DAILY_BUDGET_USD", defaults.gloo_daily_budget_usd)),
     )

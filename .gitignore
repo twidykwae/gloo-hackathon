@@ -8,3 +8,6 @@ tools/database_5fish.db
 data/sample-audio/
 # Local secrets and settings, e.g. YVP_APP_KEY (server/.env)
 .env
+# Gloo AI spending, counted by the server
+server/gloo-usage.json
+server/gloo-labels.json

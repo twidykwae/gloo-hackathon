@@ -1,6 +1,7 @@
 import { createBackend } from './backend.js'
 import { config } from './config.js'
 import { detectCountry } from './location.js'
+import { assistantError, chatRequest, cleanQuestion, DEFAULT_LABELS, DEFAULT_QUESTIONS } from './assistant.js'
 import { bibleResource } from './bible.js'
 import { qrSvg } from './qr.js'
 import { startRecording } from './recorder.js'
@@ -58,6 +59,18 @@ const el = {
   sampleNextName: $('sample-next-name'),
   resourcesView: $('resources-view'),
   resourcesBack: $('resources-back'),
+  guide: $('guide'),
+  guideText: $('guide-text'),
+  guideLanguage: $('guide-language'),
+  guideLabel: $('guide-label'),
+  chatHeading: $('chat-heading'),
+  chatLede: $('chat-lede'),
+  chat: $('chat'),
+  chatLog: $('chat-log'),
+  chatSuggestions: $('chat-suggestions'),
+  chatForm: $('chat-form'),
+  chatInput: $('chat-input'),
+  chatSend: $('chat-send'),
   resourcesHeading: $('resources-heading'),
   resourcesSubname: $('resources-subname'),
   resourcesList: $('resources-list'),
@@ -99,6 +112,8 @@ const state = {
   expanded: new Set(), // labels of guesses whose dialect list is open
   nearMe: false, // the "Near me" chip is on
   location: null, // { code, name } once "Near me" has found it
+  // Gloo AI on the Resources screen, for one language at a time.
+  assistant: { languageId: null, log: [], busy: false },
   sampleIndex: 0, // the guess on the Sample screen, in state.candidates
   seen: new Set(), // guesses opened on the Sample screen, by index
   played: new Set(), // GRN IDs whose sample was played, this recording
@@ -679,6 +694,7 @@ function showResources(language) {
   window.scrollTo(0, 0)
   focusHeading(el.resourcesHeading)
   addBible(language)
+  startAssistant(language)
 }
 
 /** Adds the language's YouVersion Bible to the list, when there is one. */
@@ -714,6 +730,182 @@ function renderResource(link) {
 
 // Back to the guess the language was chosen from, with its dialects, to choose again.
 el.resourcesBack.addEventListener('click', () => showSample(state.sampleIndex))
+// ------------------------------------------------- Gloo AI: guide and chat
+
+/** The guide note and the chat for this language. Coming back to the same language keeps the conversation. */
+function startAssistant(language) {
+  el.guide.hidden = !config.guideUrl
+  // With a guide coming, the chat waits for it, so it appears in the person's language.
+  el.chat.hidden = !config.chatUrl || (Boolean(config.guideUrl) && state.assistant.languageId !== language.id)
+  if (state.assistant.languageId === language.id) return
+  state.assistant = { languageId: language.id, log: [], busy: false }
+  el.chatLog.replaceChildren()
+  el.chatInput.value = ''
+  updateSendButton()
+  showLabels(DEFAULT_LABELS, 'en')
+  showSuggestions(config.guideUrl ? [] : DEFAULT_QUESTIONS)
+  if (config.guideUrl) loadGuide(language)
+}
+
+const isCurrent = (language) => state.assistant.languageId === language.id
+
+async function postJson(url, body) {
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  if (!response.ok) {
+    const error = new Error(`${url} returned ${response.status}`)
+    error.status = response.status
+    throw error
+  }
+  return response.json()
+}
+
+async function loadGuide(language) {
+  el.guide.dataset.state = 'loading'
+  el.guide.setAttribute('aria-busy', 'true')
+  el.guideText.textContent = ''
+  el.guideLanguage.textContent = ''
+  let guide
+  try {
+    guide = await postJson(config.guideUrl, { grn_id: language.id, country: state.location?.code ?? null })
+  } catch (err) {
+    console.warn('No guide note', err)
+    if (!isCurrent(language)) return
+    el.guide.hidden = true // the resources speak for themselves
+    showSuggestions(DEFAULT_QUESTIONS)
+    el.chat.hidden = !config.chatUrl
+    return
+  }
+  if (!isCurrent(language)) return
+  el.guideText.textContent = guide.text
+  el.guideText.lang = guide.tag || ''
+  el.guideLanguage.textContent = ownName(guide.tag) || guide.language
+  el.guide.dataset.state = 'ready'
+  if (guide.labels) showLabels(guide.labels, guide.tag)
+  el.guide.setAttribute('aria-busy', 'false')
+  // Starter questions in the guide's language, until the first question is asked.
+  if (!state.assistant.log.length) {
+    if (guide.questions?.length) showSuggestions(guide.questions, guide.tag)
+    else showSuggestions(DEFAULT_QUESTIONS)
+  }
+  el.chat.hidden = !config.chatUrl
+}
+
+/** A language's name in itself ("es" → "español"), when the browser knows it. */
+function ownName(tag) {
+  try {
+    return tag ? new Intl.DisplayNames([tag], { type: 'language' }).of(tag) : ''
+  } catch {
+    return ''
+  }
+}
+
+/** The note and chat's own words, in the guide's language. */
+function showLabels(labels, lang) {
+  const words = { ...DEFAULT_LABELS, ...labels }
+  el.guideLabel.textContent = words.note
+  el.chatHeading.textContent = words.chatTitle
+  el.chatLede.textContent = words.chatLede
+  el.chatInput.placeholder = words.placeholder
+  el.chatSend.setAttribute('aria-label', words.send)
+  for (const node of [el.guideLabel, el.chatHeading, el.chatLede, el.chatInput, el.chatSend]) node.lang = lang || ''
+}
+
+function showSuggestions(questions, lang = '') {
+  el.chatSuggestions.replaceChildren(
+    ...questions.map((question) => {
+      const chip = document.createElement('button')
+      chip.type = 'button'
+      chip.className = 'chip'
+      chip.lang = lang
+      chip.textContent = question
+      return chip
+    }),
+  )
+}
+
+function addMessage(role, text, { error = false } = {}) {
+  const item = document.createElement('li')
+  item.className = `message message-${role}${error ? ' message-error' : ''}`
+  item.dir = 'auto'
+  item.textContent = text
+  el.chatLog.append(item)
+  return item
+}
+
+function showTyping() {
+  const item = document.createElement('li')
+  item.className = 'message message-assistant message-typing'
+  item.setAttribute('aria-label', 'Writing an answer')
+  item.append(document.createElement('span'), document.createElement('span'), document.createElement('span'))
+  el.chatLog.append(item)
+  item.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+  return item
+}
+
+async function ask(question) {
+  question = cleanQuestion(question)
+  const assistant = state.assistant
+  if (!question || assistant.busy) return
+  assistant.busy = true
+  el.chatSuggestions.replaceChildren() // starters are only for the first question
+  el.chatInput.value = ''
+  resizeInput()
+  updateSendButton()
+  const languageId = assistant.languageId
+  const body = chatRequest(languageId, state.location?.code, assistant.log, question)
+  assistant.log.push({ role: 'user', content: question })
+  addMessage('user', question)
+  const typing = showTyping()
+  try {
+    const { reply } = await postJson(config.chatUrl, body)
+    if (state.assistant !== assistant) return // moved to another language meanwhile
+    assistant.log.push({ role: 'assistant', content: reply })
+    typing.replaceWith(addMessage('assistant', reply))
+  } catch (err) {
+    console.warn('Chat failed', err)
+    if (state.assistant !== assistant) return
+    assistant.log.pop() // not answered, so not part of the conversation
+    typing.replaceWith(addMessage('assistant', assistantError(err.status), { error: true }))
+  } finally {
+    assistant.busy = false
+    updateSendButton()
+  }
+  el.chatLog.lastElementChild?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+}
+
+function updateSendButton() {
+  el.chatSend.disabled = state.assistant.busy || !cleanQuestion(el.chatInput.value)
+}
+
+/** The box grows with the question, up to a few lines. */
+function resizeInput() {
+  el.chatInput.style.height = 'auto'
+  el.chatInput.style.height = `${el.chatInput.scrollHeight}px`
+}
+
+el.chatForm.addEventListener('submit', (e) => {
+  e.preventDefault()
+  ask(el.chatInput.value)
+})
+el.chatInput.addEventListener('input', () => {
+  resizeInput()
+  updateSendButton()
+})
+// Enter sends; Shift+Enter starts a new line.
+el.chatInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) {
+    e.preventDefault()
+    ask(el.chatInput.value)
+  }
+})
+el.chatSuggestions.addEventListener('click', (e) => {
+  const chip = e.target.closest('.chip')
+  if (chip) ask(chip.textContent)
+})
 el.resourcesRestart.addEventListener('click', reset)
 
 // ------------------------------------------------------------ sample playback

@@ -1290,6 +1290,282 @@ body:not([data-phase='recording']) .level::before {
   margin-top: 22px;
 }
 
+/* ------------------------------------------- 5b. resources: Gloo AI */
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* The guide: a short note above the resources, set like a letter. */
+.guide {
+  position: relative;
+  margin: 10px 0 14px;
+  padding: 18px 20px 16px;
+  border: 1px solid var(--card-border);
+  border-radius: 22px;
+  background: linear-gradient(180deg, var(--card) 0%, #fdf8f1 100%);
+  animation: fade-up 0.35s ease-out both;
+}
+
+.guide-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 10px;
+}
+
+.guide-label {
+  margin: 0;
+}
+
+/* A small accent dot; it breathes while the note is being written. */
+.guide-mark {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.guide[data-state='loading'] .guide-mark {
+  animation: breathe 1.2s ease-in-out infinite alternate;
+}
+
+.guide-language {
+  margin-left: auto;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--paper);
+  color: var(--muted);
+  font: 500 11px var(--sans);
+}
+
+.guide-language:empty {
+  display: none;
+}
+
+.guide-text {
+  margin: 0;
+  color: var(--ink);
+  font: 400 21px/1.32 var(--serif);
+  letter-spacing: -0.003em;
+  text-wrap: pretty;
+}
+
+.guide[data-state='ready'] .guide-text {
+  animation: fade-up 0.4s ease-out both;
+}
+
+.guide-skeleton {
+  display: none;
+  flex-direction: column;
+  gap: 9px;
+  padding: 4px 0 2px;
+}
+
+.guide[data-state='loading'] .guide-skeleton {
+  display: flex;
+}
+
+.guide-skeleton span {
+  height: 14px;
+  border-radius: 7px;
+  background: linear-gradient(90deg, var(--line-soft) 0%, #f7f2e9 50%, var(--line-soft) 100%) 0 0 / 200% 100%;
+  animation: shimmer 1.4s linear infinite;
+}
+
+.guide-skeleton span:nth-child(2) { width: 92%; }
+.guide-skeleton span:nth-child(3) { width: 64%; }
+
+/* The chat: one card below the resources. */
+.chat {
+  margin-top: 10px;
+  padding: 20px 18px 18px;
+  border: 1px solid var(--card-border);
+  border-radius: 22px;
+  background: var(--card);
+}
+
+.chat-title {
+  margin: 0 0 4px;
+  font: 400 28px/1.05 var(--serif);
+  letter-spacing: -0.01em;
+}
+
+.chat-lede {
+  margin: 0 0 14px;
+  color: var(--muted);
+  font: 400 14px/1.45 var(--sans);
+}
+
+.chat-log {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.chat-log:not(:empty) {
+  margin-bottom: 14px;
+}
+
+.message {
+  max-width: 86%;
+  padding: 10px 14px;
+  font: 400 15px/1.45 var(--sans);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  animation: fade-up 0.25s ease-out both;
+}
+
+.message-user {
+  align-self: flex-end;
+  border-radius: 18px 18px 6px 18px;
+  background: var(--ink);
+  color: var(--paper);
+}
+
+.message-assistant {
+  align-self: flex-start;
+  border-radius: 18px 18px 18px 6px;
+  background: var(--paper);
+  color: var(--ink);
+}
+
+.message-error {
+  border: 1px dashed var(--line);
+  background: transparent;
+  color: var(--muted);
+}
+
+/* Three dots while the answer is on its way. */
+.message-typing {
+  display: flex;
+  gap: 5px;
+  padding: 14px 16px;
+}
+
+.message-typing span {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--faint);
+  animation: typing 1s ease-in-out infinite;
+}
+
+.message-typing span:nth-child(2) { animation-delay: 0.15s; }
+.message-typing span:nth-child(3) { animation-delay: 0.3s; }
+
+.chat-suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.chat-suggestions:empty {
+  display: none;
+}
+
+/* Starter questions: the shared chip, allowed to wrap onto two lines. */
+.chat-suggestions .chip {
+  height: auto;
+  min-height: 32px;
+  padding: 6px 14px;
+  text-align: left;
+  line-height: 1.3;
+}
+
+.chat-suggestions .chip:hover {
+  border-color: var(--ink);
+  color: var(--ink);
+}
+
+.chat-form {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  padding: 6px 6px 6px 14px;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: var(--paper);
+  transition: border-color 0.15s;
+}
+
+.chat-form:focus-within {
+  border-color: var(--ink);
+}
+
+.chat-input {
+  flex: 1;
+  min-height: 40px;
+  max-height: 128px;
+  padding: 9px 0;
+  border: none;
+  background: transparent;
+  color: var(--ink);
+  font: 400 15px/1.45 var(--sans);
+  resize: none;
+  outline: none;
+}
+
+.chat-input::placeholder {
+  color: var(--faint);
+}
+
+.chat-send {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border: none;
+  border-radius: 50%;
+  background: var(--ink);
+  cursor: pointer;
+  transition: background 0.15s, opacity 0.15s;
+}
+
+/* An arrow pointing up. */
+.chat-send::before {
+  content: '';
+  width: 18px;
+  height: 18px;
+  background: var(--paper);
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 19V5'/%3E%3Cpath d='m5 12 7-7 7 7'/%3E%3C/svg%3E")
+    center / contain no-repeat;
+}
+
+.chat-send:hover:not(:disabled) {
+  background: var(--accent);
+}
+
+.chat-send:disabled {
+  opacity: 0.25;
+  cursor: default;
+}
+
+@keyframes breathe {
+  from { opacity: 0.35; transform: scale(0.8); }
+  to { opacity: 1; transform: scale(1.1); }
+}
+
+@keyframes shimmer {
+  to { background-position: -200% 0; }
+}
+
+@keyframes typing {
+  0%, 60%, 100% { transform: translateY(0); opacity: 0.45; }
+  30% { transform: translateY(-4px); opacity: 1; }
+}
+
 /* ------------------------------------------------------------- error */
 
 #error-view {

@@ -102,9 +102,49 @@ button:focus-visible,
 
 .app-bar {
   display: flex;
-  justify-content: flex-end;
-  align-items: baseline;
+  align-items: center;
+  gap: 12px;
   min-height: 30px;
+}
+
+.app-bar .step {
+  margin-left: auto;
+}
+
+/* As tall as the Sample screen's toolbar, so Record again stays put between the two screens. */
+body[data-phase='results'] .app-bar {
+  min-height: 44px;
+}
+
+/* Record again, top left on Rankings and the Sample screen: a small outlined pill with a mini mic. */
+.record-again-button {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 5px;
+  height: 30px;
+  padding: 0 11px 0 9px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--card);
+  color: var(--ink);
+  font: 500 12px var(--sans);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.record-again-button svg {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.record-again-button[hidden] {
+  display: none;
 }
 
 .step {

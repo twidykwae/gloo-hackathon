@@ -41,6 +41,7 @@ function showNames(nameEl, subnameEl, language, ownLang) {
 const $ = (id) => document.getElementById(id)
 const el = {
   appBar: $('app-bar'),
+  appBarRecord: $('app-bar-record'),
   step: $('step'),
   recordView: $('record-view'),
   recordButton: $('record-button'),
@@ -215,6 +216,7 @@ function setPhase(phase) {
   }
   el.step.textContent = STEP_FOR_PHASE[phase]
   el.appBar.hidden = !STEP_FOR_PHASE[phase]
+  el.appBarRecord.hidden = phase !== 'results' // the Sample screen's toolbar has its own
   const recording = phase === 'recording'
   el.recordButton.dataset.recording = String(recording)
   el.recordButton.setAttribute('aria-label', recording ? 'Stop recording' : 'Start recording')
@@ -411,8 +413,8 @@ async function showResultsWhenReady(session) {
   state.candidates = candidates.filter((c) => c.known)
   state.topConfidence = topConfidence(candidates)
   state.shown = config.pageSize
-  // The best guess starts with its dialects showing.
-  state.expanded = new Set(state.candidates.slice(0, 1).map((c) => c.label))
+  // Every guess starts with its dialects hidden.
+  state.expanded = new Set()
   renderResults()
   // Straight to hearing the best guess; all the rankings are a tap away.
   if (state.candidates.length > 0) showSample(0)
@@ -553,6 +555,8 @@ el.showMore.addEventListener('click', () => {
   renderResults()
 })
 el.recordAgain.addEventListener('click', reset)
+// The Record again button at the top left of Rankings and the Sample screen.
+for (const button of document.querySelectorAll('.record-again-button')) button.addEventListener('click', reset)
 el.newDialect.addEventListener('click', () => showDialectForm({ from: 'rankings' }))
 el.errorRetry.addEventListener('click', reset)
 

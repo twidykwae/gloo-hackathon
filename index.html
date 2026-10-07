@@ -16,6 +16,15 @@
   <body data-phase="idle">
     <main id="app">
       <header id="app-bar" class="app-bar">
+        <!-- Rankings only; the Sample screen has the same button in its own toolbar. -->
+        <button type="button" id="app-bar-record" class="record-again-button" hidden>
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
+            <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+            <line x1="12" x2="12" y1="19" y2="22" />
+          </svg>
+          Record again
+        </button>
         <span id="step" class="step"></span>
       </header>
 
@@ -122,7 +131,15 @@
       <!-- 4. Sample: one guess at a time, to listen and choose. -->
       <section id="sample-view" class="screen" aria-labelledby="sample-name" hidden>
         <div class="toolbar">
-          <span></span> <!-- no back arrow: "Show all rankings" goes back to the list -->
+          <!-- No back arrow ("Show all rankings" goes back to the list): the same Record again as on Rankings. -->
+          <button type="button" class="record-again-button">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
+              <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+              <line x1="12" x2="12" y1="19" y2="22" />
+            </svg>
+            Record again
+          </button>
           <!-- One dot per guess in the first few; the current one is wide. -->
           <ol id="sample-dots" class="dots" aria-hidden="true"></ol>
           <button type="button" id="sample-all" class="pill-button">Show all rankings</button>

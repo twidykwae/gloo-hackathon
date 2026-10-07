@@ -14,16 +14,20 @@ export const config = {
   // 'https://media.globalrecordings.net/GOKit_MP3/sample-{id}.mp3'
   sampleUrl: '/samples/{id}.mp3',
 
-  // Where consent answers and kept recordings go.
-  consentUrl: null,
-  recordingUrl: null,
-  // Where "This is my language" choices go. With a kept recording (same
-  // sessionId), a choice says which language the recording is in.
-  choiceUrl: null,
-  // Where "None, enter new dialect" reports go: a language or dialect the
+  // Where what happens to each recording is stored: the server in server/
+  // keeps one row per sessionId (server/app/store.py). null stops sending one.
+  // The model's guesses, as soon as they're back.
+  predictionUrl: '/sessions/prediction',
+  // Consent answers, and the audio after a "Yes".
+  consentUrl: '/sessions/consent',
+  recordingUrl: '/sessions/recording',
+  // "This is my language" choices, on reaching Resources. With a kept
+  // recording (same sessionId), a choice says which language it is in.
+  choiceUrl: '/sessions/choice',
+  // "None, enter new dialect" reports: a language or dialect the
   // catalog doesn't have. With a kept recording (same sessionId) it's training
   // data; without one, a lead for the team to follow up.
-  dialectUrl: null,
+  dialectUrl: '/sessions/dialect',
 
   // Links on the last screen, for the chosen language. {id} is its GRN
   // language ID and {name} its name; `button` is the button's label and `logo`

@@ -25,7 +25,9 @@ take them home on their own phone.
   at a time or as a ranked list, including the dialects under each language.
 - **"Near me"** marks the languages spoken in the country the device is in.
 - **Asks permission** before keeping a recording, to help the model learn
-  languages it knows little about. Results never depend on the answer.
+  languages it knows little about. Results never depend on the answer. Kept
+  recordings, and each session's results, are stored on the computer running
+  the server (`server/storage/`), not sent anywhere else.
 - **Learns what it's missing.** If none of the guesses is right, the person
   can name their language or dialect, so it can be added later.
 - **Gives them their language's resources:** GRN's recordings on 5fish and

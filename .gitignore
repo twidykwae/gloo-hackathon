@@ -11,3 +11,5 @@ data/sample-audio/
 # Gloo AI spending, counted by the server
 server/gloo-usage.json
 server/gloo-labels.json
+# What the page sends about recordings, and kept recordings (server/app/store.py)
+server/storage/

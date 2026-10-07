@@ -31,9 +31,9 @@ class Settings:
     # (main branch) names files the same way, so it can fill this ahead of time.
     samples_dir: Path = PAGE_DIR / "data" / "sample-audio"
 
-    # YouVersion Platform app key, for GET /bible/{id}. Empty turns the
-    # endpoint off. Keep it out of git: put it in server/.env (see README).
-    youversion_app_key: str = ""
+    # YouVersion Platform app key, for GET /bible/{id}. The team's key for now;
+    # YVP_APP_KEY overrides it, and an empty value turns the endpoint off.
+    youversion_app_key: str = "caf5vTyeQhy1lLHtQjaAS5oKqnpssGB2DGRi2fl7ASSVIZus"
 
 
 def load_settings() -> Settings:

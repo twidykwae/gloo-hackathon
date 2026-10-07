@@ -106,7 +106,8 @@ def test_dialects_use_their_parent_languages_code():
 
 
 def client(youversion=None):
-    return TestClient(create_app(settings=Settings(), identifier=StubIdentifier(["spa"]), youversion=youversion))
+    settings = Settings(youversion_app_key="")  # no real YouVersion calls from tests
+    return TestClient(create_app(settings=settings, identifier=StubIdentifier(["spa"]), youversion=youversion))
 
 
 def test_endpoint():

@@ -25,9 +25,8 @@ Wait for `Application startup complete` (about 10 seconds while the model
 loads), then open <http://localhost:8080> in Chrome, Edge or Firefox. Press
 Ctrl+C to stop it.
 
-To show each language's Bible on the Resources screen, put the YouVersion app
-key in `server/.env` (git ignores it) and add `--env-file .env` to the command
-above. See "Bibles from YouVersion".
+The Resources screen's Bible links use the team's YouVersion app key, set in
+`server/app/config.py`. See "Bibles from YouVersion".
 
 The microphone and GPS work on `localhost` without HTTPS. On any other address
 they need HTTPS.
@@ -331,7 +330,7 @@ Set these as environment variables before starting the server (in PowerShell,
 | `LID_CORS_ORIGINS` | none | Comma-separated addresses of other websites allowed to call `/predict`. Not needed for the page this server serves |
 | `LID_LAMP_URL` | `http://127.0.0.1:8001` | Where LAMP's server listens, in `lamp` mode |
 | `LID_SAMPLES_DIR` | `data/sample-audio` | Where downloaded sample MP3s are kept |
-| `YVP_APP_KEY` | none | YouVersion Platform app key, for `GET /bible/{id}`. Without it the Resources screen just has no Bible link |
+| `YVP_APP_KEY` | the team's key | YouVersion Platform app key, for `GET /bible/{id}`. Empty turns the Bible links off |
 
 ### Switching to LAMP
 
@@ -428,16 +427,12 @@ aliases (Amharic is `am`, alias `amh`), and returns that language's Bible:
 `"bible": null` means YouVersion has none. `can_show_text` says whether our app
 key is licensed to show the Bible's text itself; the bible.com link works
 either way. It's a 404 for an unknown GRN id, 502 if YouVersion can't be
-reached (after one retry), and 503 without `YVP_APP_KEY`. YouVersion's
+reached (after one retry), and 503 when the key is empty. YouVersion's
 language list and our licenses are cached for an hour, so newly agreed
 licenses show up without a restart.
 
-**Setup:** get an app key at platform.youversion.com, then in `server/`:
-
-```powershell
-"YVP_APP_KEY=your-key" | Out-File -Encoding ascii .env
-.venv\Scripts\python -m uvicorn app.main:create_app --factory --port 8080 --env-file .env
-```
+**Setup:** none. The team's app key (from platform.youversion.com) is the
+default in `server/app/config.py`. To use another key, set `YVP_APP_KEY`.
 
 **Coverage** (October 2026): 1,918 of the 6,816 GRN languages (28%) have a
 Bible on YouVersion. With the Wycliffe, Biblica and SIL "Fast-track" licenses

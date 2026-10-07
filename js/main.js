@@ -55,7 +55,6 @@ const el = {
   sampleNext: $('sample-next'),
   resourcesView: $('resources-view'),
   resourcesBack: $('resources-back'),
-  resourcesAll: $('resources-all'),
   resourcesHeading: $('resources-heading'),
   resourcesSubname: $('resources-subname'),
   resourcesList: $('resources-list'),
@@ -702,7 +701,6 @@ function renderResource(link) {
 
 // Back to the guess the language was chosen from, with its dialects, to choose again.
 el.resourcesBack.addEventListener('click', () => showSample(state.sampleIndex))
-el.resourcesAll.addEventListener('click', showRankings)
 el.resourcesRestart.addEventListener('click', reset)
 
 // ------------------------------------------------------------ sample playback

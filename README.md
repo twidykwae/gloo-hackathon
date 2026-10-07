@@ -128,9 +128,9 @@ The screens follow the team's Claude Design prototype.
 
 ```
 Record ──▶ recording ──tap, or 20 s──▶ Detect + consent popup ──▶ Sample (best match) ──"This is my language"──▶ Resources
-                                            │ Cancel                 ▲   │ Show all rankings              │
-                                            ▼                        │   ▼                                │ Show all rankings
-                                          Record                     └─ Rankings ◀────────────────────────┘
+                                            │ Cancel                 ▲   │ Show all rankings
+                                            ▼                        │   ▼
+                                          Record                     └─ Rankings
                                                                     (tap a guess)
 ```
 

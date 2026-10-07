@@ -11,6 +11,13 @@ then open http://localhost:8080.
     GET  /bible/{id}   a GRN language's Bible on YouVersion: name, copyright, bible.com link
     POST /assistant/guide   Gloo AI: a short note about the chosen language's resources
     POST /assistant/chat    Gloo AI: answers questions about them
+    POST /sessions/prediction  the model's guesses for a recording, as soon as they're back
+    POST /sessions/consent     the answer to "May we keep your recording?"
+    POST /sessions/recording   a kept recording's audio, only once a "Yes" is stored
+    POST /sessions/choice      the language they chose, on reaching Resources
+    POST /sessions/dialect     a new dialect they typed in
+These five fill in one row per recording in server/storage/sessions.db
+(app/store.py).
 """
 
 from __future__ import annotations
@@ -21,7 +28,7 @@ import re
 from pathlib import Path
 from typing import Annotated
 
-from fastapi import FastAPI, File, HTTPException, Query, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -34,6 +41,7 @@ from .bibles import BibleLookupError, UnknownLanguage, YouVersion, load_grn_lang
 from .config import Settings, load_settings
 from .identifiers import Identifier, IdentifierError, make_identifier
 from .samples import SampleNotFound, SampleUnavailable, get_sample
+from .store import NoConsent, Store
 
 logger = logging.getLogger("language_id")
 
@@ -42,6 +50,60 @@ MAX_UPLOAD_BYTES = 5 * 1024 * 1024  # ~2.5 min of 16 kHz 16-bit mono; far above 
 ALL_LABELS = 10_000
 # The project folder holding index.html: server/app/main.py -> project root.
 PAGE_DIR = Path(__file__).resolve().parents[2]
+
+
+# What the page sends about a recording (js/main.js). Limits keep what anyone
+# can post small; extra fields are dropped.
+SessionId = Annotated[str, Field(pattern=r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")]
+Text = Annotated[str, Field(max_length=200)]
+# The audio a kept recording may be, and the file extension it's saved with.
+AUDIO_EXTENSIONS = {"audio/webm": "webm", "audio/ogg": "ogg", "audio/mp4": "m4a", "audio/wav": "wav"}
+
+
+class Guess(BaseModel):
+    rank: int
+    label: Text
+    name: Text | None = None
+    confidence: float
+
+
+class Prediction(BaseModel):
+    sessionId: SessionId
+    recordingType: Text
+    recordingBytes: int
+    recordingSeconds: float
+    model: Text
+    guesses: list[Guess] = Field(max_length=20)
+    predictedAt: Text
+
+
+class Consent(BaseModel):
+    sessionId: SessionId
+    consent: bool
+    answeredAt: Text
+
+
+class Choice(BaseModel):
+    sessionId: SessionId
+    languageId: int
+    languageName: Text
+    languageIso: Text | None = None
+    modelLabel: Text
+    modelRank: int
+    modelConfidence: float
+    chosenAt: Text
+
+
+class Dialect(BaseModel):
+    sessionId: SessionId
+    parentLanguageId: int | None = None
+    parentLanguageName: Text
+    dialectName: Text
+    countryCode: Text | None = None
+    countryName: Text
+    modelGuesses: list[dict] = Field(default_factory=list, max_length=20)
+    guessesViewed: int = 0
+    submittedAt: Text
 
 
 class GuideRequest(BaseModel):
@@ -73,6 +135,7 @@ def create_app(
             Budget(settings.gloo_usage_file, settings.gloo_daily_budget_usd, *settings.gloo_price_per_m),
             labels_file=settings.gloo_labels_file,
         )
+    store = Store(settings.storage_dir)
     grn_rows = {row["id"]: row for row in json.loads((PAGE_DIR / "data" / "languages.json").read_text(encoding="utf-8"))}
 
     app = FastAPI(title="Language ID", version="0.2.0")
@@ -140,6 +203,41 @@ def create_app(
         except BibleLookupError as e:
             logger.warning("Bible lookup failed: %s", e)
             raise HTTPException(502, str(e)) from e
+
+    @app.post("/sessions/prediction", status_code=204)
+    def save_prediction(prediction: Prediction) -> None:
+        store.save_prediction(prediction.model_dump())
+
+    @app.post("/sessions/consent", status_code=204)
+    def save_consent(consent: Consent) -> None:
+        store.save_consent(consent.model_dump())
+
+    @app.post("/sessions/recording", status_code=204)
+    def save_recording(
+        session_id: Annotated[SessionId, Form(alias="sessionId")],
+        file: Annotated[UploadFile, File(description="The recording as the browser made it")],
+    ) -> None:
+        """Kept only once POST /sessions/consent has stored a "Yes" for this
+        sessionId (409 otherwise): no answer means no audio. A later "No"
+        deletes it."""
+        audio_type = (file.content_type or "").split(";")[0]
+        if audio_type not in AUDIO_EXTENSIONS:
+            raise HTTPException(415, f"not a recording type this server keeps: {audio_type or 'none'}")
+        data = file.file.read(MAX_UPLOAD_BYTES + 1)
+        if len(data) > MAX_UPLOAD_BYTES:
+            raise HTTPException(413, "audio upload too large")
+        try:
+            store.save_recording(session_id, data, AUDIO_EXTENSIONS[audio_type])
+        except NoConsent as e:
+            raise HTTPException(409, str(e)) from e
+
+    @app.post("/sessions/choice", status_code=204)
+    def save_choice(choice: Choice) -> None:
+        store.save_choice(choice.model_dump())
+
+    @app.post("/sessions/dialect", status_code=204)
+    def save_dialect(dialect: Dialect) -> None:
+        store.save_dialect(dialect.model_dump())
 
     def resources_for(request: GuideRequest) -> Resources:
         """The facts the model is given, built here so the page can't change them."""

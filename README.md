@@ -119,6 +119,7 @@ cd server
 | `server/app/main.py` | The server: `POST /predict` runs the model; also serves the page (`/`, `css/`, `js/`, `data/` only) |
 | `server/app/identifiers.py` | The models: Meta's MMS (default), LAMP (over HTTP), and a stub |
 | `server/app/audio.py` | Reads the uploaded WAV |
+| `server/app/store.py` | Stores predictions, consent answers, kept recordings, choices and new dialects in SQLite (see [Stored sessions](#stored-sessions)) |
 | `server/app/config.py` | Server settings, from environment variables (see below) |
 | `server/app/bibles.py` | Finds a GRN language's Bible on YouVersion (see "Bibles from YouVersion") |
 | `server/app/samples.py` | Downloads a language's sample MP3 from GRN once and keeps it (see "Playing language samples") |
@@ -150,7 +151,8 @@ Record ──▶ recording ──tap, or 20 s──▶ Detect ──────
   screen shows the real progress: *Preparing your recording* (converting it to
   WAV), *Identifying the language* (the model), *Finding it in our catalog*
   (matching to GRN languages). **Cancel** stops the request and goes back to
-  Record.
+  Record. The model's guesses are stored as soon as they're back, for every
+  recording (`backend.savePrediction`; see [Stored sessions](#stored-sessions)).
 - **Consent.** A banner at the top of the app, "May we keep your
   recording?", from when recording stops until it's answered. It doesn't
   block anything: results come as soon as the model is done, and the banner
@@ -343,23 +345,10 @@ Views are hidden with the HTML `hidden` attribute; `[hidden]` is forced to
 - **An "unsure" state.** When the top guess is very low (under a few
   percent), the model doesn't really know; the page could say so and lean on
   location and the helper.
-- **Storage for consent answers, kept recordings, choices and new
-  dialects.** For example, SQLite on the model server: set `consentUrl`,
-  `recordingUrl`, `choiceUrl` and `dialectUrl` in `js/config.js`. Each
-  consent answer is
-  `{ sessionId, consent, answeredAt, recordingType, recordingBytes, recordingSeconds }`,
-  and a kept recording is posted with the same data as `meta`. Each choice is
-  `{ sessionId, consent, languageId, languageName, modelLabel, modelRank, modelConfidence, chosenAt }`.
-  A choice with a kept recording (same `sessionId`) is a labelled training
-  example: the recording, and the language its speaker picked. Each new
-  dialect is
-  `{ sessionId, consent, parentLanguageId, parentLanguageName, dialectName, countryCode, countryName, modelGuesses, guessesViewed, submittedAt }`
-  (`guessesViewed`: how many guesses they opened on the Sample screen first);
-  `parentLanguageId` and `countryCode` are `null` when what was typed isn't
-  a known language or country. With `consent: true` the kept recording has
-  the same `sessionId`, so it's training data for a language the model
-  doesn't know yet. With `consent: false` there's no recording: it's a lead
-  for the team to follow up.
+- **Who can post to `/sessions/…`.** Anyone who can reach the server can, with
+  no sign-in, so the stored data can include junk. Limits keep each post small
+  (see [Stored sessions](#stored-sessions)), but nothing stops a flood of them.
+- **Who can read the stored recordings, and for how long they're kept.**
 - **Reviewing new dialects.** They're typed freely ("Mineiro", "mineiro",
   "Minas"), so someone should check them before they're used for training.
 - **More resources.** The Resources screen only has the 5fish link so far.
@@ -390,6 +379,7 @@ Set these as environment variables before starting the server (in PowerShell,
 | `LID_CORS_ORIGINS` | none | Comma-separated addresses of other websites allowed to call `/predict`. Not needed for the page this server serves |
 | `LID_LAMP_URL` | `http://127.0.0.1:8001` | Where LAMP's server listens, in `lamp` mode |
 | `LID_SAMPLES_DIR` | `data/sample-audio` | Where downloaded sample MP3s are kept |
+| `LID_STORAGE_DIR` | `server/storage` | Where `sessions.db` and kept recordings go (see below). Not under `data/`, which is public |
 | `YVP_APP_KEY` | the team's key | YouVersion Platform app key, for `GET /bible/{id}`. Empty turns the Bible links off |
 
 ### Switching to LAMP
@@ -399,6 +389,39 @@ own server (`lid_finetune/scripts/model/serve.py` in the LAMP repo) on port
 8001, or the stand-in `server/tools/fake_lamp.py`. Then start this server with
 `LID_IDENTIFIER=lamp`. The page needs no changes: `js/results.js` already
 reads LAMP's GRN-ID output.
+
+## Stored sessions
+
+The server keeps what happens to each recording in SQLite:
+`server/storage/sessions.db`, one row per recording in the `sessions` table,
+keyed by the page's `sessionId`. It and `server/storage/recordings/` are
+created on first use, and git ignores them. The page sends each part as it
+happens, without waiting for the others, so the server fills in the row in
+whatever order they arrive (`server/app/store.py`). The one exception is the
+audio: the page sends it only after the server has stored a "Yes", and the
+server refuses it otherwise.
+
+| When | Page sends | Endpoint | Fills in |
+| --- | --- | --- | --- |
+| The model's guesses are back | `savePrediction` | `POST /sessions/prediction` | `model`, `model_guesses` (top 10, JSON), `top_label`, `top_name`, `top_confidence`, recording type, size and length |
+| "Yes, keep it" or "No thanks" | `saveConsent` | `POST /sessions/consent` | `consent` (1 or 0), `consent_at`. A "No" deletes any audio |
+| After the "Yes" is stored | `saveRecording` | `POST /sessions/recording` | `audio_file`: the audio as the browser made it, in `recordings/`. Refused (409) unless the row has `consent = 1`, so with no answer there's never any audio |
+| Reaching Resources from a choice | `saveChoice` | `POST /sessions/choice` | `chosen_language_id`, `_name`, `_iso`, and the guess it came from: `chosen_model_label`, `_rank`, `_confidence`. Choosing again replaces it |
+| Submitting a new dialect | `saveNewDialect` | `POST /sessions/dialect` | `dialect`: the report as sent (JSON) |
+
+A row with `consent = 1`, an `audio_file` and a chosen language is a labelled
+training example. Comparing `top_label` with `chosen_model_label` shows how
+often the model's first guess was right. To look:
+
+```sh
+sqlite3 server/storage/sessions.db \
+  "SELECT created_at, top_label, top_confidence, chosen_language_name, chosen_model_rank, consent, audio_file FROM sessions ORDER BY created_at DESC LIMIT 20"
+```
+
+The server checks what's posted: `sessionId` must be a UUID (it names the
+audio file), text fields are at most 200 characters, guess lists at most 20,
+and audio must be WebM, Ogg, MP4 or WAV and at most 5 MB. Set any URL in
+`js/config.js` to `null` to stop sending that part.
 
 ## Playing language samples
 

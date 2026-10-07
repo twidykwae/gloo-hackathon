@@ -141,7 +141,7 @@ const state = {
   starting: false, // waiting for microphone permission
   recorder: null,
   startedAt: 0,
-  // One recording and everything about it: { id, recording, seconds, consent, results, controller }
+  // One recording and everything about it: { id, recording, recordingType, recordingBytes, seconds, consent, results, controller }
   session: null,
   candidates: [], // the guesses the catalog knows, in the model's order
   topConfidence: 0, // the best guess's score: a full-strength match ring
@@ -299,6 +299,8 @@ async function finishRecording() {
   const session = {
     id: crypto.randomUUID(),
     recording,
+    recordingType: recording.type, // kept after a "No" clears the recording
+    recordingBytes: recording.size,
     seconds: Math.round(seconds * 10) / 10,
     consent: null,
     controller: new AbortController(),
@@ -314,7 +316,9 @@ async function finishRecording() {
   ]).then(([raw, languages]) => {
     console.info('Raw model response', raw)
     onStage('match')
-    return toCandidates(raw, languages)
+    const candidates = toCandidates(raw, languages)
+    savePrediction(session, raw, candidates)
+    return candidates
   })
   session.results.catch(() => {}) // reported in showResultsWhenReady
   showConsentBanner() // until answered; results don't wait for it
@@ -392,15 +396,33 @@ function answerConsent(consented) {
     recordingBytes: session.recording.size,
     recordingSeconds: session.seconds,
   }
-  backend.saveConsent(answer).catch((err) => console.error('Saving the consent answer failed', err))
+  const saved = backend.saveConsent(answer)
+  saved.catch((err) => console.error('Saving the consent answer failed', err))
   if (consented) {
-    backend
-      .saveRecording(session.recording, answer)
+    // Only once the "Yes" is stored: the server refuses audio without one.
+    saved
+      .then(() => backend.saveRecording(session.recording, session.id))
       .catch((err) => console.error('Keeping the recording failed', err))
   } else {
     session.recording = null // not kept
   }
   updateDialectNote()
+}
+
+/** Stores the model's guesses for every recording, as soon as they're back; a choice later adds to it (same sessionId). */
+function savePrediction(session, raw, candidates) {
+  const prediction = {
+    sessionId: session.id,
+    recordingType: session.recordingType,
+    recordingBytes: session.recordingBytes,
+    recordingSeconds: session.seconds,
+    model: raw.model ?? 'unknown',
+    guesses: candidates
+      .slice(0, 10)
+      .map((c) => ({ rank: c.rank, label: c.label, name: c.name, confidence: c.confidence })),
+    predictedAt: new Date().toISOString(),
+  }
+  backend.savePrediction(prediction).catch((err) => console.error('Saving the prediction failed', err))
 }
 
 el.consentYes.addEventListener('click', () => answerConsent(true))
@@ -679,7 +701,7 @@ el.sampleDialects.addEventListener('click', (e) => {
 
 // ----------------------------------------------------------- choice and resources
 
-/** "This is my language": save the choice, then show what's there for it. */
+/** "This is my language": save the choice (added to the stored prediction), then show what's there for it. */
 function choose(language, candidate) {
   stopSample()
   const session = state.session
@@ -688,6 +710,7 @@ function choose(language, candidate) {
     consent: session?.consent ?? null, // with a "yes", the kept recording has the same sessionId
     languageId: language.id,
     languageName: language.name,
+    languageIso: language.iso ?? null,
     modelLabel: candidate.label,
     modelRank: candidate.rank,
     modelConfidence: candidate.confidence,

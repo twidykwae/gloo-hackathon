@@ -5,9 +5,9 @@ export function createBackend(config) {
   return mode === 'http' ? httpBackend(config) : mockBackend(config)
 }
 
-/** Stand-in server: sample data after a delay; answers, recordings and choices kept in memory. */
+/** Stand-in server: sample data after a delay; predictions, answers, recordings and choices kept in memory. */
 function mockBackend(config) {
-  const saved = { consents: [], recordings: [], choices: [], dialects: [] }
+  const saved = { predictions: [], consents: [], recordings: [], choices: [], dialects: [] }
   // Inspect from the browser console: window.mockServer.consents
   window.mockServer = saved
   const wait = (ms, signal) =>
@@ -29,13 +29,17 @@ function mockBackend(config) {
       console.info('[mock] identified a %s recording (%d bytes)', recording.type, recording.size)
       return response.json()
     },
+    async savePrediction(prediction) {
+      saved.predictions.push(prediction)
+      console.info('[mock] prediction saved', prediction)
+    },
     async saveConsent(answer) {
       saved.consents.push(answer)
       console.info('[mock] consent saved', answer)
     },
-    async saveRecording(recording, meta) {
-      saved.recordings.push({ recording, meta })
-      console.info('[mock] recording kept for training', meta)
+    async saveRecording(recording, sessionId) {
+      saved.recordings.push({ recording, sessionId })
+      console.info('[mock] recording kept for training', sessionId)
     },
     async saveChoice(choice) {
       saved.choices.push(choice)
@@ -80,6 +84,10 @@ function httpBackend(config) {
       onStage?.('identify')
       return (await post(config.identifyUrl, form, signal)).json()
     },
+    async savePrediction(prediction) {
+      if (!config.predictionUrl) return console.warn('predictionUrl not set; prediction not saved', prediction)
+      await post(config.predictionUrl, new Blob([JSON.stringify(prediction)], { type: 'application/json' }))
+    },
     async saveConsent(answer) {
       if (!config.consentUrl) return console.warn('consentUrl not set; consent answer not saved', answer)
       await post(config.consentUrl, new Blob([JSON.stringify(answer)], { type: 'application/json' }))
@@ -92,11 +100,11 @@ function httpBackend(config) {
       if (!config.dialectUrl) return console.warn('dialectUrl not set; new dialect not saved', report)
       await post(config.dialectUrl, new Blob([JSON.stringify(report)], { type: 'application/json' }))
     },
-    async saveRecording(recording, meta) {
-      if (!config.recordingUrl) return console.warn('recordingUrl not set; recording not kept', meta)
+    async saveRecording(recording, sessionId) {
+      if (!config.recordingUrl) return console.warn('recordingUrl not set; recording not kept', sessionId)
       const form = new FormData()
-      form.append('file', recording, `${meta.sessionId}.${extension(recording.type)}`)
-      form.append('meta', JSON.stringify(meta))
+      form.append('sessionId', sessionId)
+      form.append('file', recording, `${sessionId}.${extension(recording.type)}`)
       await post(config.recordingUrl, form)
     },
   }

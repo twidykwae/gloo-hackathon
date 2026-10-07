@@ -31,6 +31,11 @@ class Settings:
     # (main branch) names files the same way, so it can fill this ahead of time.
     samples_dir: Path = PAGE_DIR / "data" / "sample-audio"
 
+    # Where predictions, consent answers, kept recordings and choices are
+    # stored: sessions.db and recordings/ (app/store.py). Not under data/,
+    # which the server makes public.
+    storage_dir: Path = PAGE_DIR / "server" / "storage"
+
     # YouVersion Platform app key, for GET /bible/{id}. The team's key for now;
     # YVP_APP_KEY overrides it, and an empty value turns the endpoint off.
     youversion_app_key: str = "caf5vTyeQhy1lLHtQjaAS5oKqnpssGB2DGRi2fl7ASSVIZus"
@@ -58,6 +63,7 @@ def load_settings() -> Settings:
         max_audio_seconds=float(env("LID_MAX_AUDIO_SECONDS", defaults.max_audio_seconds)),
         cors_origins=[o.strip() for o in env("LID_CORS_ORIGINS", "").split(",") if o.strip()],
         samples_dir=Path(env("LID_SAMPLES_DIR", defaults.samples_dir)),
+        storage_dir=Path(env("LID_STORAGE_DIR", defaults.storage_dir)),
         youversion_app_key=env("YVP_APP_KEY", defaults.youversion_app_key),
         gloo_api_key=env("GLOO_API_KEY", defaults.gloo_api_key),
         gloo_model=env("GLOO_MODEL", defaults.gloo_model),

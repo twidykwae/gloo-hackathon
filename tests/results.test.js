@@ -282,23 +282,28 @@ describe('describeCountries', () => {
 describe('resourceLinks', () => {
   const language = { id: 101, name: 'Tzotzil: Chamula' }
 
-  it('fills in the GRN ID and name, and shows the domain', () => {
-    const resources = [{ title: 'Listen to recordings in {name}', url: 'https://5fish.mobi/{id}' }]
+  it('fills in the GRN ID and name, and keeps the button label and logo', () => {
+    const resources = [{ title: 'Listen to recordings in {name}', button: 'Go to 5fish', logo: 'images/5fish.png', url: 'https://5fish.mobi/{id}' }]
     assert.deepEqual(resourceLinks(language, resources), [
-      { title: 'Listen to recordings in Tzotzil: Chamula', url: 'https://5fish.mobi/101', domain: '5fish.mobi' },
+      { title: 'Listen to recordings in Tzotzil: Chamula', button: 'Go to 5fish', logo: 'images/5fish.png', url: 'https://5fish.mobi/101' },
     ])
   })
 
-  it('drops "www." from the domain and keeps the order', () => {
+  it('leaves the logo out when there is none', () => {
+    const [link] = resourceLinks(language, [{ title: 'A', button: 'Go', url: 'https://example.org/{id}' }])
+    assert.equal('logo' in link, false)
+  })
+
+  it('labels the button with the domain, without "www.", when it has no label, and keeps the order', () => {
     const resources = [
       { title: 'A', url: 'https://www.example.org/lang/{id}?ref={id}' },
       { title: 'B', url: 'https://5fish.mobi/{id}' },
     ]
     assert.deepEqual(
-      resourceLinks(language, resources).map((link) => [link.url, link.domain]),
+      resourceLinks(language, resources).map((link) => [link.url, link.button]),
       [
-        ['https://www.example.org/lang/101?ref=101', 'example.org'],
-        ['https://5fish.mobi/101', '5fish.mobi'],
+        ['https://www.example.org/lang/101?ref=101', 'Go to example.org'],
+        ['https://5fish.mobi/101', 'Go to 5fish.mobi'],
       ],
     )
   })

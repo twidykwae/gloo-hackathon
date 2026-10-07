@@ -22,8 +22,11 @@ export const config = {
   choiceUrl: null,
 
   // Links on the last screen, for the chosen language. {id} is its GRN
-  // language ID and {name} its name. Add more here.
-  resources: [{ title: 'Listen to recordings in {name}', url: 'https://5fish.mobi/{id}' }],
+  // language ID and {name} its name; `button` is the button's label and `logo`
+  // the picture above it (optional). Add more here.
+  resources: [
+    { title: 'Listen to recordings in {name}', button: 'Go to 5fish', logo: 'images/5fish.png', url: 'https://5fish.mobi/{id}' },
+  ],
   // The language's Bible on YouVersion (the server's GET /bible/{id}), added
   // after the links above when there is one. null turns it off, for example
   // in mock mode without the server.

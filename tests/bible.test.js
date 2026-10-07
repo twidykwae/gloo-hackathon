@@ -5,7 +5,7 @@ import { bibleResource } from '../js/bible.js'
 
 const amharic = { id: 1, name: 'Amharic' }
 
-test('a Bible becomes a resource link with its name and copyright', () => {
+test('a Bible becomes a resource link with a "Go to YouVersion" button', () => {
   const link = bibleResource(
     {
       grn_id: 1,
@@ -23,19 +23,10 @@ test('a Bible becomes a resource link with its name and copyright', () => {
   )
   assert.deepEqual(link, {
     title: 'Read the Bible in Amharic',
+    button: 'Go to YouVersion',
+    logo: 'images/youversion.png',
     url: 'https://www.bible.com/versions/1260',
-    domain: 'bible.com',
-    note: 'አዲሱ መደበኛ ትርጒም (NASV) · © Bible Society of Ethiopia',
   })
-})
-
-test('the note falls back to the English title, and skips a missing copyright', () => {
-  const link = bibleResource({ bible: { title: 'Berean Standard Bible', abbreviation: 'BSB', url: 'https://www.bible.com/versions/3034' } }, amharic)
-  assert.equal(link.note, 'Berean Standard Bible (BSB)')
-})
-
-test('no repeated abbreviation when it is the only name', () => {
-  assert.equal(bibleResource({ bible: { abbreviation: 'jit', url: 'https://www.bible.com/versions/3689' } }, amharic).note, 'jit')
 })
 
 test('no Bible, no link', () => {

@@ -58,7 +58,6 @@ const el = {
   sampleNextName: $('sample-next-name'),
   resourcesView: $('resources-view'),
   resourcesBack: $('resources-back'),
-  resourcesAll: $('resources-all'),
   resourcesHeading: $('resources-heading'),
   resourcesSubname: $('resources-subname'),
   resourcesList: $('resources-list'),
@@ -700,25 +699,21 @@ async function addBible(language) {
 
 function renderResource(link) {
   const item = el.resourceTemplate.content.firstElementChild.cloneNode(true)
-  item.querySelector('.resource-link').href = link.url
-  item.querySelector('.resource-initial').textContent = link.title.charAt(0)
-  item.querySelector('.resource-title').textContent = link.title
-  item.querySelector('.resource-domain').textContent = link.domain
-  item.querySelector('.resource-qr-domain').textContent = link.domain
-  if (link.note) {
-    const note = item.querySelector('.resource-note')
-    note.textContent = link.note
-    note.hidden = false
-  }
+  const button = item.querySelector('.resource-button')
+  button.href = link.url
+  button.textContent = link.button
+  button.title = link.title
+  const logo = item.querySelector('.resource-logo')
+  if (link.logo) logo.src = link.logo
+  else logo.remove()
   const qr = item.querySelector('.qr')
   qr.innerHTML = qrSvg(link.url) // built from the URL by qr.js, not from page content
-  qr.setAttribute('aria-label', `QR code for ${link.url}`)
+  qr.setAttribute('aria-label', `QR code: ${link.title}`)
   return item
 }
 
 // Back to the guess the language was chosen from, with its dialects, to choose again.
 el.resourcesBack.addEventListener('click', () => showSample(state.sampleIndex))
-el.resourcesAll.addEventListener('click', showRankings)
 el.resourcesRestart.addEventListener('click', reset)
 
 // ------------------------------------------------------------ sample playback

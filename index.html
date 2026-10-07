@@ -173,12 +173,11 @@
       <section id="resources-view" class="screen" aria-labelledby="resources-heading" hidden>
         <div class="toolbar">
           <!-- Back to the guess they chose from, to pick another language or dialect. -->
-          <button type="button" id="resources-back" class="icon-button back-button" aria-label="Back to choose a different language or dialect"></button>
-          <button type="button" id="resources-all" class="pill-button">Show all rankings</button>
-        </div>
+          <button type="button" id="resources-back" class="icon-button back-button" aria-label="Back to choose a different language or dialect"></button>        </div>
         <p class="eyebrow resources-eyebrow">You chose</p>
         <h2 id="resources-heading" class="title resources-title"></h2>
         <p id="resources-subname" class="lede"></p>
+        <p class="resources-prompt">Point a camera at a code to open it on another phone, or use the buttons.</p>
         <ul id="resources-list" class="resources"></ul>
         <button type="button" id="resources-restart" class="link-button record-again">Start over with a new recording</button>
       </section>
@@ -253,23 +252,14 @@
       </li>
     </template>
 
-    <!-- One link on the Resources screen, with a QR code to open it on another phone. -->
+    <!-- One link on the Resources screen: a QR code to open it on another phone, and a button to open it here. -->
     <template id="resource-template">
       <li class="resource">
-        <a class="resource-link" target="_blank" rel="noopener">
-          <span class="resource-initial" aria-hidden="true"></span>
-          <span class="resource-text">
-            <span class="resource-title"></span>
-            <span class="resource-domain"></span>
-            <span class="resource-note" hidden></span>
-          </span>
-        </a>
-        <div class="resource-qr">
-          <span class="qr" role="img"></span>
-          <span class="resource-qr-text">
-            <strong>Point a camera here</strong>
-            <span>Scan to open <span class="resource-qr-domain"></span> on another phone.</span>
-          </span>
+        <span class="qr" role="img"></span>
+        <div class="resource-action">
+          <!-- The button already names the site, so the logo is decoration. -->
+          <img class="resource-logo" alt="" width="56" height="56">
+          <a class="primary-button resource-button" target="_blank" rel="noopener"></a>
         </div>
       </li>
     </template>

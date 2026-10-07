@@ -1227,102 +1227,33 @@ body:not([data-phase='recording']) .level::before {
 .resources {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 16px;
   margin: 8px 0 0;
   padding: 0;
   list-style: none;
 }
 
+/* One row per link: its QR code, and a button beside it to open it here. */
 .resource {
-  overflow: hidden;
-  border: 1px solid var(--card-border);
-  border-radius: 22px;
-  background: var(--card);
-}
-
-.resource-link {
   display: flex;
   align-items: center;
-  gap: 14px;
-  padding: 16px 16px 14px 18px;
-  color: var(--ink);
-  text-decoration: none;
+  gap: 18px;
 }
 
-/* An arrow pointing up and out: it opens in a new tab. */
-.resource-link::after {
-  content: '';
-  flex: none;
-  width: 18px;
-  height: 18px;
-  background: var(--faint);
-  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M7 17 17 7'/%3E%3Cpath d='M7 7h10v10'/%3E%3C/svg%3E")
-    center / contain no-repeat;
-}
-
-.resource-link:hover .resource-title {
-  text-decoration: underline;
-}
-
-.resource-initial {
-  display: grid;
-  flex: none;
-  place-items: center;
-  width: 40px;
-  height: 40px;
-  border-radius: 12px;
-  background: var(--accent);
-  color: var(--paper);
-  font: 400 22px/1 var(--serif);
-}
-
-.resource:nth-child(5n + 2) .resource-initial { background: #2f5d50; }
-.resource:nth-child(5n + 3) .resource-initial { background: #3d4f8a; }
-.resource:nth-child(5n + 4) .resource-initial { background: #8a5a1f; }
-.resource:nth-child(5n + 5) .resource-initial { background: var(--ink); }
-
-.resource-text {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-}
-
-.resource-title {
-  font: 600 16px var(--sans);
-}
-
-.resource-domain {
-  color: var(--faint);
-  font: 400 12px var(--mono);
-}
-
-/* The Bible card's version name and copyright (YouVersion requires both). */
-.resource-note {
-  display: block;
-  margin-top: 4px;
-  color: var(--faint);
-  font-size: 12px;
-  line-height: 1.4;
-}
-
-.resource-qr {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  margin: 0 18px 18px;
-  padding: 12px;
-  border-radius: 16px;
-  background: var(--paper);
+.resources-prompt {
+  margin: 0 0 4px;
+  color: var(--muted);
+  font: 400 14px/1.45 var(--sans);
 }
 
 .qr {
   flex: none;
-  width: 92px;
-  height: 92px;
-  padding: 4px;
-  border-radius: 10px;
+  box-sizing: border-box;
+  width: 46%; /* a little under half the screen */
+  aspect-ratio: 1;
+  padding: 12px;
+  border: 1px solid var(--card-border);
+  border-radius: 18px;
   background: #fff; /* scanners need light around the code */
   color: var(--ink);
 }
@@ -1333,17 +1264,26 @@ body:not([data-phase='recording']) .level::before {
   height: 100%;
 }
 
-.resource-qr-text {
+/* The site's logo, with its button below. */
+.resource-action {
   display: flex;
+  flex: 1;
   flex-direction: column;
-  gap: 4px;
-  color: var(--muted);
-  font: 400 13px/1.4 var(--sans);
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
 }
 
-.resource-qr-text strong {
-  color: var(--ink);
-  font: 600 14px var(--sans);
+.resource-logo {
+  display: block;
+  width: 56px;
+  height: 56px;
+  border-radius: 14px;
+}
+
+.resource-button {
+  align-self: stretch;
+  text-decoration: none;
 }
 
 #resources-restart {

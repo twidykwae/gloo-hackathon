@@ -31,7 +31,6 @@
   --near: #2f7d4f;
   --near-bg: rgba(47, 125, 79, 0.12);
   --sand: #ddd3c1; /* the Sample screen's Next button */
-  --sand-hover: #d2c6b1;
   --go: #2f7d4f; /* a sample not heard yet, on the Sample screen */
 
   /* Type */
@@ -184,23 +183,14 @@ h2[tabindex='-1']:focus {
 
 .primary-button {
   border: none;
-  background: var(--ink);
-  color: var(--paper);
-}
-
-.primary-button:hover {
   background: var(--accent);
+  color: var(--paper);
 }
 
 .secondary-button {
   border: 1.5px solid var(--ink);
   background: transparent;
   color: var(--ink);
-}
-
-.secondary-button:hover {
-  background: var(--ink);
-  color: var(--paper);
 }
 
 .link-button {
@@ -213,10 +203,6 @@ h2[tabindex='-1']:focus {
   text-decoration: underline;
   text-underline-offset: 3px;
   cursor: pointer;
-}
-
-.link-button:hover {
-  color: var(--ink);
 }
 
 .chip {
@@ -245,19 +231,14 @@ h2[tabindex='-1']:focus {
 .pill-button {
   height: 30px;
   padding: 0 12px;
-  border: 1px solid var(--ink);
+  border: 1px solid var(--accent);
   border-radius: 999px;
-  background: var(--ink);
+  background: var(--accent);
   color: var(--paper);
   font: 500 12px var(--sans);
   white-space: nowrap;
   cursor: pointer;
   transition: background 0.15s, border-color 0.15s;
-}
-
-.pill-button:hover {
-  border-color: var(--accent);
-  background: var(--accent);
 }
 
 .icon-button {
@@ -915,11 +896,11 @@ body:not([data-phase='recording']) .level::before {
   cursor: pointer;
 }
 
-.card-main:hover .card-name {
+/*.card-main:hover .card-name {
   text-decoration: underline;
   text-decoration-thickness: 1px;
   text-underline-offset: 4px;
-}
+}*/
 
 /* --------------------------------------------------------- 4. sample */
 
@@ -1126,12 +1107,6 @@ body:not([data-phase='recording']) .level::before {
   transition: background 0.15s, color 0.15s, border-color 0.15s;
 }
 
-.choose-button:hover {
-  border-color: var(--ink);
-  background: var(--ink);
-  color: var(--paper);
-}
-
 .sample-next-hint {
   margin: 0;
   padding-top: 16px;
@@ -1179,10 +1154,6 @@ body:not([data-phase='recording']) .level::before {
   background: var(--sand);
   text-align: left;
   transition: background 0.15s;
-}
-
-.nav-next:hover {
-  background: var(--sand-hover);
 }
 
 .nav-next-label {

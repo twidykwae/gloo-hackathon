@@ -1302,43 +1302,6 @@ body:not([data-phase='recording']) .level::before {
   animation: fade-up 0.35s ease-out both;
 }
 
-.guide-head {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: 0 0 4px;
-}
-
-.guide-label {
-  margin: 0;
-}
-
-/* A small accent dot; it breathes while the note is being written. */
-.guide-mark {
-  flex: none;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--accent);
-}
-
-.guide[data-state='loading'] .guide-mark {
-  animation: breathe 1.2s ease-in-out infinite alternate;
-}
-
-.guide-language {
-  margin-left: auto;
-  padding: 2px 8px;
-  border-radius: 999px;
-  background: var(--paper);
-  color: var(--muted);
-  font: 500 11px var(--sans);
-}
-
-.guide-language:empty {
-  display: none;
-}
-
 .guide-text {
   margin: 0;
   color: var(--ink);
@@ -1540,11 +1503,6 @@ body:not([data-phase='recording']) .level::before {
 .chat-send:disabled {
   opacity: 0.25;
   cursor: default;
-}
-
-@keyframes breathe {
-  from { opacity: 0.35; transform: scale(0.8); }
-  to { opacity: 1; transform: scale(1.1); }
 }
 
 @keyframes shimmer {

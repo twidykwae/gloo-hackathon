@@ -223,12 +223,8 @@
         <p id="resources-subname" class="lede"></p>
 
         <!-- Gloo AI: a short note about these resources, in the language the person most likely reads. -->
-        <article id="guide" class="guide" data-state="loading" aria-labelledby="guide-label" aria-busy="true" hidden>
-          <p class="guide-head">
-            <span class="guide-mark" aria-hidden="true"></span>
-            <span id="guide-label" class="eyebrow guide-label">A note for you</span>
-            <span id="guide-language" class="guide-language"></span>
-          </p>
+        <!-- No heading on screen; screen readers announce it as "A note for you", in the note's language. -->
+        <article id="guide" class="guide" data-state="loading" aria-label="A note for you" aria-busy="true" hidden>
           <div class="guide-skeleton" aria-hidden="true"><span></span><span></span><span></span></div>
           <p id="guide-text" class="guide-text" aria-live="polite"></p>
         </article>

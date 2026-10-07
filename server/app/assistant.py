@@ -124,7 +124,7 @@ Write only in {name} (language tag {tag}), even if the chosen language is a diff
 Use plain words and short sentences for a reader with little schooling. No lists, no bold, no headings, no emoji.
 Only mention the resources in the facts. Do not invent features, links, or numbers, and do not say whether \
 the Bible is complete.
-Keep the whole note under 35 words. Write exactly these sentences, in this order:
+Keep the whole note under 45 words. Write exactly these sentences, in this order:
 1. One short sentence: a warm welcome, and that on 5fish they can listen to Bible stories and songs in their \
 own language, even without internet. Write the name 5fish exactly like that.
 {bible_step}
@@ -133,9 +133,11 @@ you, an assistant, for help. Write them in the person's own voice (I, my), about
 the Bible, for example: How do I listen without internet? / Can I share this with my family? / Where should I \
 start listening? Never ask the person about themselves or their feelings."""
 
-BIBLE_STEP = "2. One short sentence inviting them to read the Bible in their own language in the free \
-YouVersion Bible App. Write the name YouVersion exactly like that."
-NO_BIBLE_STEP = "There is no Bible in their language on YouVersion yet, so do not mention any Bible app."
+BIBLE_STEP = "2. One short sentence: they can also read the Bible in their own language in the free \
+YouVersion Bible App. Write the name YouVersion exactly like that. This sentence must end with the words \
+\"or chat with an agent below\" (translated)."
+NO_BIBLE_STEP = "2. One short sentence: they can also chat with an agent below. There is no Bible in their \
+language on YouVersion yet, so do not mention any Bible app."
 
 
 def mentions_resources(text: str, has_bible: bool) -> bool:
@@ -162,7 +164,7 @@ def plain(text: str) -> str:
     return re.sub(r"\n{3,}", "\n\n", text).strip()
 
 
-def parse_guide(content: str, max_chars: int = 280) -> tuple[str, list[str]]:
+def parse_guide(content: str, max_chars: int = 340) -> tuple[str, list[str]]:
     """(note, questions) from the model's reply: the asked-for "note --- questions"
     format, JSON, or prose with a list of questions at the end."""
     try:

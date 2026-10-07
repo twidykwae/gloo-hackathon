@@ -88,8 +88,6 @@ const el = {
   resourcesEyebrow: $('resources-eyebrow'),
   guide: $('guide'),
   guideText: $('guide-text'),
-  guideLanguage: $('guide-language'),
-  guideLabel: $('guide-label'),
   chatHeading: $('chat-heading'),
   chatLede: $('chat-lede'),
   chat: $('chat'),
@@ -832,7 +830,6 @@ async function loadGuide(language) {
   el.guide.dataset.state = 'loading'
   el.guide.setAttribute('aria-busy', 'true')
   el.guideText.textContent = ''
-  el.guideLanguage.textContent = ''
   let guide
   try {
     guide = await postJson(config.guideUrl, {
@@ -851,7 +848,6 @@ async function loadGuide(language) {
   if (!isCurrent(language)) return
   el.guideText.textContent = guide.text
   el.guideText.lang = guide.tag || ''
-  el.guideLanguage.textContent = ownName(guide.tag) || guide.language
   el.guide.dataset.state = 'ready'
   if (guide.labels) showLabels(guide.labels, guide.tag)
   el.guide.setAttribute('aria-busy', 'false')
@@ -863,20 +859,10 @@ async function loadGuide(language) {
   el.chat.hidden = !config.chatUrl
 }
 
-/** A language's name in itself ("es" → "español"), when the browser knows it. */
-function ownName(tag) {
-  try {
-    const name = tag ? new Intl.DisplayNames([tag], { type: 'language' }).of(tag) : ''
-    return name === tag ? '' : name // a code it doesn't know comes back unchanged, e.g. "tzo"
-  } catch {
-    return ''
-  }
-}
-
-/** The note and chat's own words, in the guide's language. */
 // Every word on the end screen, in the guide's language once it arrives.
 let endLabels = { words: DEFAULT_LABELS, lang: 'en' }
 
+/** The end screen's own words, in the guide's language. */
 function showLabels(labels, lang) {
   const words = { ...DEFAULT_LABELS, ...labels }
   endLabels = { words, lang }
@@ -887,12 +873,12 @@ function showLabels(labels, lang) {
     button.textContent = buttonText(button.dataset.text)
     button.lang = lang || ''
   }
-  el.guideLabel.textContent = words.note
+  el.guide.setAttribute('aria-label', words.note)
   el.chatHeading.textContent = words.chatTitle
   el.chatLede.textContent = words.chatLede
   el.chatInput.placeholder = words.placeholder
   el.chatSend.setAttribute('aria-label', words.send)
-  const nodes = [el.resourcesEyebrow, el.resourcesPrompt, el.resourcesRestart, el.guideLabel, el.chatHeading, el.chatLede, el.chatInput, el.chatSend]
+  const nodes = [el.resourcesEyebrow, el.resourcesPrompt, el.resourcesRestart, el.guide, el.chatHeading, el.chatLede, el.chatInput, el.chatSend]
   for (const node of nodes) node.lang = lang || ''
 }
 

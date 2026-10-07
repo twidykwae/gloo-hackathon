@@ -107,6 +107,9 @@ cd server
 | `server/app/identifiers.py` | The models: Meta's MMS (default), LAMP (over HTTP), and a stub |
 | `server/app/audio.py` | Reads the uploaded WAV |
 | `server/app/config.py` | Server settings, from environment variables (see below) |
+| `server/app/samples.py` | Downloads a language's sample MP3 from GRN once and keeps it (see "Playing language samples") |
+| `scripts/fetch_samples.py` | Downloads sample MP3s ahead of time, from the command line (see "Playing language samples") |
+| `data/sample-audio/` | Downloaded sample MP3s (not in git) |
 | `server/tools/fake_lamp.py` | A stand-in for LAMP's server, for testing LAMP mode without its weights |
 
 ## The flow
@@ -208,7 +211,9 @@ CSS.
 | `#loading .spinner` | The loading spinner (a placeholder spin rule is in `styles.css`) |
 | `#consent-dialog` | A native `<dialog>`; style its backdrop with `#consent-dialog::backdrop` |
 | `#results-list > li.result` | One guess: `.result-name`, `.result-iso` (the model's code), `.result-confidence`, `.result-local` ("Near you" badge). `data-count` is how many languages it covers; `data-label` is the model's code; `data-rank` is the model's rank |
-| `li.result[data-count="1"] .result-play` | A guess that means one language gets a "Play sample" button (see below) |
+| `li.result[data-count="1"] .result-play` | A guess that means one language gets a "Play sample" button (see "Playing language samples") |
+| `.result-play[data-playing="true"]`, `.language-play[data-playing="true"]` | That button's sample is playing (the text also changes: Play/Stop sample) |
+| `.result-play[data-sample="missing"]`, `.language-play[data-sample="missing"]` | No sample to play: the button is disabled and says "No sample" or "Sample unavailable" |
 | `.result-varieties` | A guess covering several languages gets a native `<details>` instead: `<summary>` with `.result-variety-count`, then `ul.result-languages` |
 | `li.language` | One variety in that list: `.language-name`, `.language-local`, `.language-play` |
 | `#min-confidence`, `#min-confidence-value` | The confidence slider (`<input type="range">`) and the `<output>` showing its value |
@@ -254,6 +259,7 @@ Set these as environment variables before starting the server (in PowerShell,
 | `LID_MAX_AUDIO_SECONDS` | `20` | Longer recordings are trimmed |
 | `LID_CORS_ORIGINS` | none | Comma-separated addresses of other websites allowed to call `/predict`. Not needed for the page this server serves |
 | `LID_LAMP_URL` | `http://127.0.0.1:8001` | Where LAMP's server listens, in `lamp` mode |
+| `LID_SAMPLES_DIR` | `data/sample-audio` | Where downloaded sample MP3s are kept |
 
 ### Switching to LAMP
 
@@ -263,13 +269,60 @@ own server (`lid_finetune/scripts/model/serve.py` in the LAMP repo) on port
 `LID_IDENTIFIER=lamp`. The page needs no changes: `js/results.js` already
 reads LAMP's GRN-ID output.
 
-## Playing language samples (not wired up)
+## Playing language samples
 
-Another team member is building sample playback. This page has no playback
-code; the **"Play sample"** buttons (`.result-play` on a single-language guess,
-`.language-play` on each variety) are placeholders with nothing attached.
+Each "Play sample" button plays GRN's sample recording of that language, so
+the person can listen and pick the language they speak. Samples come from
+`https://media.globalrecordings.net/GOKit_MP3/sample-{id}.mp3`, where `{id}`
+is the GRN language ID (the `id` in `data/languages.json`, not an ISO code).
 
-To wire them up, the GRN language ID for a button is on the nearest list item:
-`button.closest('[data-id]').dataset.id`. `data/languages.json` still marks
-languages without a sample (`"noSample": true`), straight from the 5fish
-database.
+### On the page
+
+- **The buttons.** `.result-play` is on a guess that means one language;
+  `.language-play` is on each variety in a guess's list. A button finds its
+  language from the nearest list item: `button.closest('[data-id]')`.
+- **One sample at a time.** Tapping another button stops the one playing.
+  Tapping the playing button again stops it. Playback also stops when the
+  list is rebuilt (filters, "Show more") or on "Record again".
+- **No sample.** Languages the 5fish database marks `"noSample": true` get a
+  disabled "No sample" button. A sample that fails to load gets a disabled
+  "Sample unavailable" button. Both are marked `data-sample="missing"`.
+- **Where samples come from** is `sampleUrl` in `js/config.js`:
+  `/samples/{id}.mp3` on the server. For the page without the server
+  (`?backend=mock`), set it to the GRN address above instead.
+
+### On the server
+
+`GET /samples/{id}.mp3` (`server/app/samples.py`) serves the sample from
+`data/sample-audio/sample-{id}.mp3`. If it isn't there yet, the server
+downloads it from GRN first and keeps it, so each sample is downloaded only
+once.
+
+| Response | When |
+| --- | --- |
+| 200 with the MP3 | The sample was already kept, or downloaded now |
+| 404 | GRN has no sample for that language |
+| 502 | GRN couldn't be reached, so nothing was downloaded |
+
+### Downloading samples ahead of time: `scripts/fetch_samples.py`
+
+Without internet (on a field laptop, for example), the server can only play
+samples it already has. This script downloads them ahead of time into the
+same folder. Files already there are skipped, so running it again is cheap.
+
+```bash
+python scripts/fetch_samples.py 1 51 92      # specific GRN language IDs
+python scripts/fetch_samples.py --random 10  # random languages that have a sample
+```
+
+It needs only Python 3.10+, with no packages. It prints each language's name
+and file, and warns about IDs that aren't in `data/languages.json` or have no
+sample (it still tries to download those). It exits with status 1 if any
+download fails, so other scripts can tell.
+
+It can also be used from Python:
+
+```python
+from fetch_samples import fetch_samples
+paths = fetch_samples(["1", "51", "92"])  # {id: Path, or None if the download failed}
+```

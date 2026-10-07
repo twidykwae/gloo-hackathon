@@ -16,7 +16,7 @@ import {
 const readJson = (path) => JSON.parse(readFileSync(new URL(path, import.meta.url), 'utf8'))
 
 // A tiny catalog: Tzotzil with two varieties, Mam, two Quechua languages
-// under the umbrella code "que", and Sindhi with a variety.
+// under the umbrella code "que", and Sindhi with a variety that has no sample.
 const LANGUAGES = [
   { id: 100, name: 'Tzotzil', iso: 'tzo', countries: ['MX'] },
   { id: 101, name: 'Tzotzil: Chamula', iso: 'tzo', parent: 100 },
@@ -25,7 +25,7 @@ const LANGUAGES = [
   { id: 300, name: 'Quechua, Cusco', iso: 'quz', macro: 'que', countries: ['PE'] },
   { id: 301, name: 'Quechua, Ayacucho', iso: 'quy', macro: 'que', countries: ['PE'] },
   { id: 400, name: 'Sindhi', iso: 'snd' },
-  { id: 401, name: 'Charan', iso: 'snd', parent: 400 },
+  { id: 401, name: 'Charan', iso: 'snd', parent: 400, noSample: true },
 ]
 const index = indexLanguages(LANGUAGES)
 
@@ -79,9 +79,21 @@ describe('toCandidates with ISO codes (Meta’s model)', () => {
       name: 'Tzotzil: Chamula',
       iso: 'tzo',
       contentUrl: 'https://5fish.mobi/101',
+      hasSample: true,
       countries: [],
       parentCountries: ['MX'],
     })
+  })
+
+  it('marks languages without a sample recording', () => {
+    const [snd] = toCandidates({ label_kind: 'iso639_3', predictions: [{ label: 'snd', probability: 1 }] }, index)
+    assert.deepEqual(
+      snd.languages.map((lang) => [lang.name, lang.hasSample]),
+      [
+        ['Charan', false],
+        ['Sindhi', true],
+      ],
+    )
   })
 
   it('keeps the confidence and a rounded percent', () => {

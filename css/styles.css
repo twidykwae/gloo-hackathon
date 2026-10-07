@@ -734,10 +734,8 @@ body:not([data-phase='recording']) .level::before {
  * guess) turns it from pale grey to deep blue.
  */
 .match {
-  --heat: #6f8fbf;
-  --heat-text: #4f6f9f;
-  --heat: oklch(calc(0.7 - 0.2 * var(--strength, 0)) calc(0.01 + 0.16 * var(--strength, 0)) 255);
-  --heat-text: oklch(calc(0.6 - 0.2 * var(--strength, 0)) calc(0.01 + 0.16 * var(--strength, 0)) 255);
+  --heat: #29b056;
+  --heat-text: --ink;
   position: relative;
   display: grid;
   flex: none;
@@ -1013,7 +1011,7 @@ body:not([data-phase='recording']) .level::before {
 /* On the Sample screen, green until heard, then grey; orange while playing. */
 .sample-play {
   border: none;
-  background: var(--go);
+  background: var(--accent);
   color: var(--paper);
 }
 

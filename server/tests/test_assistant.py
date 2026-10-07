@@ -1,10 +1,11 @@
 import json
+from dataclasses import replace
 
 import httpx
 import pytest
 from fastapi.testclient import TestClient
 
-from app.assistant import LABELS, Assistant, AssistantError, Budget, OverBudget, Resources, clean_messages, looks_broken, note_language
+from app.assistant import LABELS, Assistant, AssistantError, Budget, OverBudget, Resources, clean_messages, looks_broken, note_language, note_languages
 from app.config import Settings
 from app.identifiers import StubIdentifier
 from app.main import create_app
@@ -35,7 +36,7 @@ def fake_gloo(tmp_path, reply=GUIDE_JSON, budget_usd=1.0, calls=None, status=200
         return httpx.Response(
             200,
             json={
-                "choices": [{"message": {"content": reply}}],
+                "choices": [{"message": {"content": reply(body) if callable(reply) else reply}}],
                 "usage": {"prompt_tokens": 12_000, "completion_tokens": 100},
             },
         )
@@ -49,8 +50,8 @@ def test_guide_reads_fenced_json_and_keeps_three_questions(tmp_path):
     guide = fake_gloo(tmp_path).guide(TZOTZIL)
     guide.pop("labels")
     assert guide == {
-        "language": "Spanish",  # chosen by the server for Tzotzil in Mexico, not by the model
-        "tag": "es",
+        "language": "Tzotzil: Chamula",  # the chosen language, named by the server, not by the model
+        "tag": "tzo",
         "text": "Bienvenido. Escucha en 5fish. Lee la Biblia en YouVersion.",
         "questions": ["¿Cómo descargo?", "¿Es gratis?", "¿Qué es YouVersion?"],
     }
@@ -148,13 +149,28 @@ def test_guide_falls_back_to_prose_when_gloo_skips_the_json(tmp_path):
     assert guide["questions"] == []
 
 
-def test_note_language():
-    assert note_language("tzo", ["MX"], None) == ("es", "Spanish")  # minority language: the country's
-    assert note_language("amh", ["AU", "ET", "US"], None) == ("am", "Amharic")  # major language: itself
-    assert note_language("jit", ["TZ"], None) == ("sw", "Swahili")
-    assert note_language("tzo", ["MX"], "US") == ("en", "English")  # where the person is wins
-    assert note_language(None, ["CD", "CG", "AO"], None) == ("fr", "French")  # most of its countries
-    assert note_language(None, [], None) == ("en", "English")
+def test_note_language_is_always_the_chosen_one():
+    assert note_language("tzo", "Tzotzil: Chamula", "es-MX") == ("tzo", "Tzotzil: Chamula")
+    assert note_language("amh", "Amharic", "en-US") == ("am", "Amharic")  # by its short tag
+    assert note_language(None, "Kituba", None) == ("", "Kituba")  # no ISO code: by name
+
+
+def test_note_languages_fall_back_to_the_device_not_the_country():
+    assert note_languages("tzo", "Tzotzil: Chamula", "es-MX") == [("tzo", "Tzotzil: Chamula"), ("es", "Spanish")]
+    assert note_languages("tzo", "Tzotzil: Chamula", "fr") == [("tzo", "Tzotzil: Chamula"), ("fr", "French")]
+    assert note_languages("tzo", "Tzotzil: Chamula", None) == [("tzo", "Tzotzil: Chamula"), ("en", "English")]
+    assert note_languages("tzo", "Tzotzil: Chamula", "not a tag!") == [("tzo", "Tzotzil: Chamula"), ("en", "English")]
+    assert note_languages("spa", "Spanish", "es-MX") == [("es", "Spanish")]  # the same language once
+
+
+def test_a_guide_the_chosen_language_fails_is_written_in_the_device_language(tmp_path):
+    calls = []
+    spanish = '{"text": "Bienvenido. Escucha en 5fish. Lee la Biblia en YouVersion."}'
+    reply = lambda body: spanish if "Write only in Spanish" in body["messages"][0]["content"] else "laj cha'el ti " * 40
+    guide = fake_gloo(tmp_path, reply=reply, calls=calls).guide(replace(TZOTZIL, device_language="es-MX"))
+    prompts = [c["messages"][0]["content"] for c in calls if c.get("tradition")]  # guide calls, not labels
+    assert [p.split(" (")[0].split("Write only in ")[1] for p in prompts] == ["Tzotzil: Chamula"] * 2 + ["Spanish"]
+    assert guide["language"] == "Spanish"
 
 
 def test_looks_broken():
@@ -171,7 +187,7 @@ def test_a_runaway_guide_is_rejected(tmp_path):
 def test_the_guide_prompt_names_the_language(tmp_path):
     calls = []
     fake_gloo(tmp_path, calls=calls).guide(TZOTZIL)
-    assert "Write only in Spanish" in calls[0]["messages"][0]["content"]
+    assert "Write only in Tzotzil: Chamula (language tag tzo)" in calls[0]["messages"][0]["content"]
 
 
 def test_guide_reads_the_note_then_questions_format(tmp_path):
@@ -230,7 +246,7 @@ def test_a_note_that_skips_the_resources_is_retried_then_dropped(tmp_path):
     calls = []
     with pytest.raises(AssistantError):
         fake_gloo(tmp_path, reply="¡Qué bendición tener la Palabra de Dios!", calls=calls).guide(TZOTZIL)
-    assert len(calls) == 2  # one retry, then give up
+    assert len(calls) == 3  # the chosen language twice, the device's (English here) once, then give up
 
 
 def test_the_note_must_name_youversion_only_when_there_is_a_bible(tmp_path):
@@ -267,14 +283,11 @@ def test_labels_use_the_direct_endpoint_and_the_rest_stay_guarded(tmp_path):
 
 
 def test_large_languages_get_notes_in_themselves():
-    from app.assistant import note_languages
-
-    yoruba = note_languages("yor", ["BJ", "GB", "NG", "SL", "TG", "US"], None)
-    assert yoruba == [("yo", "Yoruba"), ("en", "English")]  # Yoruba first, English if that fails
-    assert note_languages("tzo", ["MX"], None) == [("es", "Spanish")]  # small: only the country's
+    yoruba = note_languages("yor", "Yoruba", "en-NG")
+    assert yoruba == [("yo", "Yoruba"), ("en", "English")]  # Yoruba first, the device's English if that fails
 
 
-def test_a_failed_note_in_the_own_language_falls_back_to_the_countrys(tmp_path):
+def test_a_failed_note_falls_back_to_english_when_the_device_language_is_unknown(tmp_path):
     replies = iter(["Ẹ kú àbọ̀.", "Ẹ kú àbọ̀.", "Welcome. Listen on 5fish. Read the Bible on YouVersion."])
     prompts = []
 

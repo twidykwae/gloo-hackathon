@@ -8,9 +8,10 @@ test('chatRequest sends the conversation ending with the new question', () => {
     { role: 'user', content: '¿Es gratis?', pending: false },
     { role: 'assistant', content: 'Sí.' },
   ]
-  assert.deepEqual(chatRequest(2641, 'MX', log, '¿Y sin internet?'), {
+  assert.deepEqual(chatRequest(2641, 'MX', log, '¿Y sin internet?', 'es-MX'), {
     grn_id: 2641,
     country: 'MX',
+    device_language: 'es-MX',
     messages: [
       { role: 'user', content: '¿Es gratis?' },
       { role: 'assistant', content: 'Sí.' },
@@ -18,6 +19,7 @@ test('chatRequest sends the conversation ending with the new question', () => {
     ],
   })
   assert.equal(chatRequest(1, undefined, [], 'Hi').country, null)
+  assert.equal(chatRequest(1, undefined, [], 'Hi').device_language, null)
 })
 
 test('assistantError explains limits and outages', () => {

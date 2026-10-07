@@ -47,6 +47,9 @@ PAGE_DIR = Path(__file__).resolve().parents[2]
 class GuideRequest(BaseModel):
     grn_id: int
     country: str | None = Field(default=None, description="ISO 3166 code of where the person is, if known")
+    device_language: str | None = Field(
+        default=None, description="The device's language setting (navigator.language), e.g. es-MX: the fallback"
+    )
 
 
 class ChatRequest(GuideRequest):
@@ -153,6 +156,7 @@ def create_app(
                 names = [found.get("localized_title"), found.get("title")]
                 bible = " / ".join(dict.fromkeys(n for n in names if n)) + f" ({found.get('abbreviation')})"
         country = (request.country or "").upper()
+        device = request.device_language or ""
         return Resources(
             language=row["name"],
             native=row.get("native"),
@@ -161,6 +165,7 @@ def create_app(
             content_url=f"https://5fish.mobi/{request.grn_id}",
             bible=bible,
             country=country if re.fullmatch(r"[A-Z]{2}", country) else None,
+            device_language=device if re.fullmatch(r"[A-Za-z]{2,3}(-[A-Za-z0-9]{1,8})*", device) else None,
         )
 
     def ask(call):

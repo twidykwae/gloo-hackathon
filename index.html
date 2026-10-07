@@ -181,10 +181,13 @@
 
       <!-- 5. Resources for the chosen language. -->
       <section id="resources-view" class="screen" aria-labelledby="resources-heading" hidden>
-        <div class="toolbar">
+        <!-- The back button, the eyebrow centered in the same row, and an empty cell that balances the button. -->
+        <div class="toolbar resources-toolbar">
           <!-- Back to the guess they chose from, to pick another language or dialect. -->
-          <button type="button" id="resources-back" class="icon-button back-button" aria-label="Back to choose a different language or dialect"></button>        </div>
-        <p id="resources-eyebrow" class="eyebrow resources-eyebrow">You chose</p>
+          <button type="button" id="resources-back" class="icon-button back-button" aria-label="Back to choose a different language or dialect"></button>
+          <p id="resources-eyebrow" class="eyebrow resources-eyebrow">Your choice:</p>
+          <span></span>
+        </div>
         <h2 id="resources-heading" class="title resources-title"></h2>
         <p id="resources-subname" class="lede"></p>
 
@@ -199,7 +202,7 @@
           <p id="guide-text" class="guide-text" aria-live="polite"></p>
         </article>
 
-        <p class="resources-prompt">Point a camera at a code to open it on another phone, or use the buttons.</p>
+        <p class="resources-prompt">Point a camera or visit directly</p>
         <ul id="resources-list" class="resources"></ul>
 
         <!-- Gloo AI: questions about these resources, answered in the language they're asked in. -->

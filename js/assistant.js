@@ -18,11 +18,15 @@ export const DEFAULT_QUESTIONS = [
   'Where should I start listening?',
 ]
 
-/** The request body for POST /assistant/chat: the conversation so far, ending with the question. */
-export function chatRequest(languageId, country, log, question) {
+/**
+ * The request body for POST /assistant/chat: the conversation so far, ending
+ * with the question. deviceLanguage (navigator.language) is the fallback.
+ */
+export function chatRequest(languageId, country, log, question, deviceLanguage) {
   return {
     grn_id: languageId,
     country: country ?? null,
+    device_language: deviceLanguage ?? null,
     messages: [...log, { role: 'user', content: question }].map(({ role, content }) => ({ role, content })),
   }
 }

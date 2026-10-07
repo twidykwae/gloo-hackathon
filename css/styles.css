@@ -1185,14 +1185,39 @@ body:not([data-phase='recording']) .level::before {
 
 /* ------------------------------------------------------ 5. resources */
 
-.resources-eyebrow {
-  margin-top: 28px;
+/* Back button, eyebrow and an empty cell as wide as the button, so the eyebrow is centered on the screen. */
+.resources-toolbar {
+  display: grid;
+  grid-template-columns: 44px 1fr 44px;
 }
 
+.resources-eyebrow {
+  margin: 0;
+  text-align: center;
+  text-transform: none;
+  font-size: 12px;
+}
+
+/* Pulled up into the toolbar row's empty lower half, so it sits just under "Your choice:". */
 .resources-title {
-  margin: 0 0 6px;
+  margin: -8px 0 6px;
   font-size: 42px;
   line-height: 1;
+  text-align: center;
+}
+
+/* The English name under a native one; most languages have none, so no gap for it then. */
+#resources-subname {
+  margin-bottom: 8px;
+  text-align: center;
+}
+
+#resources-subname:empty {
+  display: none;
+}
+
+.resources-title + #resources-subname:empty + .guide {
+  margin-top: 12px;
 }
 
 .resources {
@@ -1272,14 +1297,10 @@ body:not([data-phase='recording']) .level::before {
   white-space: nowrap;
 }
 
-/* The guide: a short note above the resources, set like a letter. */
+/* The guide: a short note above the resources, set straight on the page. */
 .guide {
   position: relative;
-  margin: 10px 0 14px;
-  padding: 18px 20px 16px;
-  border: 1px solid var(--card-border);
-  border-radius: 22px;
-  background: linear-gradient(180deg, var(--card) 0%, #fdf8f1 100%);
+  margin: 0 0 14px;
   animation: fade-up 0.35s ease-out both;
 }
 
@@ -1287,7 +1308,7 @@ body:not([data-phase='recording']) .level::before {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin: 0 0 10px;
+  margin: 0 0 4px;
 }
 
 .guide-label {
@@ -1323,7 +1344,7 @@ body:not([data-phase='recording']) .level::before {
 .guide-text {
   margin: 0;
   color: var(--ink);
-  font: 400 21px/1.32 var(--serif);
+  font: 400 17px/1.35 var(--serif);
   letter-spacing: -0.003em;
   text-wrap: pretty;
 }
@@ -1335,8 +1356,8 @@ body:not([data-phase='recording']) .level::before {
 .guide-skeleton {
   display: none;
   flex-direction: column;
-  gap: 9px;
-  padding: 4px 0 2px;
+  gap: 7px;
+  padding: 3px 0 2px;
 }
 
 .guide[data-state='loading'] .guide-skeleton {
@@ -1344,8 +1365,8 @@ body:not([data-phase='recording']) .level::before {
 }
 
 .guide-skeleton span {
-  height: 14px;
-  border-radius: 7px;
+  height: 12px;
+  border-radius: 6px;
   background: linear-gradient(90deg, var(--line-soft) 0%, #f7f2e9 50%, var(--line-soft) 100%) 0 0 / 200% 100%;
   animation: shimmer 1.4s linear infinite;
 }

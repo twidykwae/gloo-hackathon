@@ -289,7 +289,7 @@ attributes and a few custom properties, listed here.
 | `.results-end .outline-button` | The two buttons at the bottom of Rankings, each with an `.outline-icon` (`.dot-icon` or `.plus-icon`) |
 | `#dialect-form` | The new-dialect form: `.field`s with a `label` and an `input`. `#dialect-note` shows after a "No" to keeping the recording |
 | `.suggest > ul.suggestions` | A suggestion list under a box: `li.suggestion` with `.suggestion-label` and an optional `.suggestion-detail`; `[aria-selected="true"]` is the one picked with the arrow keys |
-| `#resources-eyebrow` | "You chose", or "Thank you! The closest we have" after a new dialect |
+| `#resources-eyebrow` | "Your choice:", centered in the toolbar row with the back button, or "Thank you! The closest we have" after a new dialect |
 | `#app-bar`, `#step` | "Step 1 of 3" and so on. Hidden on the Sample, Resources and error screens, which have their own `.toolbar` |
 | `#record-button[data-recording="true"]` | Recording in progress; shows `.stop-icon` instead of `.mic-icon` |
 | `.mic-ring-fill` | The ring that fills while recording, over `--max-recording` (set on `:root` from `maxRecordingSeconds`) |
@@ -487,12 +487,17 @@ On the Resources screen, Gloo AI adds a short note above the links (what
 5fish and the Bible are, and how to use them) and a "Have a question?" chat
 below them. Both are hidden if Gloo isn't set up or fails.
 
-- **Which language.** The server picks it, not the model: a major language is
-  used as-is (Amharic gets Amharic); otherwise the country's national or most
-  widely understood language (Tzotzil in Mexico gets Spanish). Models write
-  badly in most minority languages; one looped on a Tzotzil phrase when asked
-  to choose. The table is `server/app/country_languages.json`. Chat answers
-  follow the language the person types in.
+- **Which language.** The server picks it, not the model: always the chosen
+  language first (Tzotzil gets Tzotzil), tried twice. If neither note passes
+  (it loops, runs long, or leaves out 5fish or YouVersion), the device's
+  language setting (`navigator.language`, sent as `device_language`), tried
+  once; English when the device doesn't say. Where the person is never picks
+  the language. Models write badly in many minority languages (one looped on
+  a Tzotzil phrase), and the checks only catch a note that's plainly broken,
+  not one that's merely poor, so a speaker should look over the notes for
+  small languages. `server/app/country_languages.json` now only supplies
+  language names and short tags. Chat answers follow the language the person
+  types in, else the chosen language.
 - **Only real facts.** The server tells the model the language, the 5fish
   link and the YouVersion Bible; the page can't add to them. Answers that
   loop or run long are rejected, and markdown is stripped.

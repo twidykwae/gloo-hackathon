@@ -43,29 +43,28 @@ _TABLE = json.loads((Path(__file__).with_name("country_languages.json")).read_te
 _BY_ISO = {code: tag for tag, lang in _TABLE["languages"].items() for code in lang["iso"]}
 
 
-def note_languages(iso: str | None, countries: list[str], here: str | None) -> list[tuple[str, str]]:
-    """(BCP-47 tag, English name) of the languages to write to this person in, best first.
+def note_languages(iso: str | None, language: str, device: str | None) -> list[tuple[str, str]]:
+    """(BCP-47 tag, name) of the languages to write to this person in, best first.
 
-    Their own language when it's a large one (5 million or more speakers, or a
-    national language: Yoruba speakers get Yoruba). Then the language of the
-    country they're in, or else the one most of the language's countries share
-    (Tzotzil, spoken in Mexico: Spanish). Models write badly in most smaller
-    languages, so they never get to choose, and the country's language is the
-    fallback when a note in the person's own language doesn't pass.
+    Always the chosen language first: by its short tag when it has one
+    (Amharic: am), else its ISO 639-3 code under its GRN name (Tzotzil:
+    Chamula, tzo). Then the device's language setting (es-MX: Spanish), for
+    when the model can't write a note in the chosen one that passes; English
+    when the device didn't say. Where the person is never picks the language.
     """
     names = _TABLE["languages"]
-    candidates = []
-    if iso and iso in _BY_ISO:
-        candidates.append(_BY_ISO[iso])
-    places = [here] if here in _TABLE["countries"] else countries
-    tags = [_TABLE["countries"][c] for c in places if c in _TABLE["countries"]]
-    candidates.append(max(tags, key=tags.count) if tags else "en")  # ties: the first country listed
-    return [(tag, names.get(tag, {"name": "English"})["name"]) for tag in dict.fromkeys(candidates)]
+    own = (_BY_ISO.get(iso) or iso) if iso else ""
+    candidates = [(own, names[own]["name"] if own in names else language)]
+    primary = (device or "").split("-")[0].lower()
+    fallback = _BY_ISO.get(primary, primary) if re.fullmatch(r"[a-z]{2,3}", primary) else "en"
+    candidates.append((fallback, names[fallback]["name"] if fallback in names else fallback))
+    # The device's language is the chosen one: one entry, not two.
+    return list({tag or name: (tag, name) for tag, name in candidates}.values())
 
 
-def note_language(iso: str | None, countries: list[str], here: str | None) -> tuple[str, str]:
-    """The best of note_languages()."""
-    return note_languages(iso, countries, here)[0]
+def note_language(iso: str | None, language: str, device: str | None) -> tuple[str, str]:
+    """The best of note_languages(): the chosen language."""
+    return note_languages(iso, language, device)[0]
 
 
 def looks_broken(text: str, max_chars: int = 900) -> bool:
@@ -96,6 +95,7 @@ class Resources:
     content_url: str
     bible: str | None  # e.g. "Tzotzil de Huixtán (tzoA), in the YouVersion Bible App"
     country: str | None = None  # where the person is, when the page knows
+    device_language: str | None = None  # the device's language setting, e.g. es-MX
 
     def facts(self) -> str:
         lines = [
@@ -124,18 +124,17 @@ Write only in {name} (language tag {tag}), even if the chosen language is a diff
 Use plain words and short sentences for a reader with little schooling. No lists, no bold, no headings, no emoji.
 Only mention the resources in the facts. Do not invent features, links, or numbers, and do not say whether \
 the Bible is complete.
-Write exactly these sentences, in this order:
-1. One short, warm welcome.
-2. Tell them that on 5fish they can listen to Bible stories, Gospel messages and songs in their own language, \
-download them to listen without internet, and share them.
+Keep the whole note under 35 words. Write exactly these sentences, in this order:
+1. One short sentence: a warm welcome, and that on 5fish they can listen to Bible stories and songs in their \
+own language, even without internet.
 {bible_step}
 Then a line with only ---. Then 3 short questions, one per line, in {name}, that the person would tap to ask \
 you, an assistant, for help. Write them in the person's own voice (I, my), about using these resources or about \
 the Bible, for example: How do I listen without internet? / Can I share this with my family? / Where should I \
 start listening? Never ask the person about themselves or their feelings."""
 
-BIBLE_STEP = "3. Invite them to read the Bible in their own language in the free YouVersion Bible App or on \
-bible.com."
+BIBLE_STEP = "2. One short sentence inviting them to read the Bible in their own language in the free \
+YouVersion Bible App."
 NO_BIBLE_STEP = "There is no Bible in their language on YouVersion yet, so do not mention any Bible app."
 
 
@@ -163,7 +162,7 @@ def plain(text: str) -> str:
     return re.sub(r"\n{3,}", "\n\n", text).strip()
 
 
-def parse_guide(content: str, max_chars: int = 480) -> tuple[str, list[str]]:
+def parse_guide(content: str, max_chars: int = 280) -> tuple[str, list[str]]:
     """(note, questions) from the model's reply: the asked-for "note --- questions"
     format, JSON, or prose with a list of questions at the end."""
     try:
@@ -343,12 +342,12 @@ class Assistant:
 
     def guide(self, resources: Resources) -> dict:
         """{language, tag, text, questions, labels}: cached per language, resources and country."""
-        key = (resources.language, resources.bible, resources.country)
+        key = (resources.language, resources.bible, resources.country, resources.device_language)
         if key not in self._guides:
             bible_step = BIBLE_STEP if resources.bible else NO_BIBLE_STEP
-            # Their own language first (two tries), then the country's (one), if a note doesn't pass.
+            # The chosen language first (two tries), then the device's (one), if a note doesn't pass.
             attempts = []
-            for i, (tag, name) in enumerate(note_languages(resources.iso, resources.countries, resources.country)):
+            for i, (tag, name) in enumerate(note_languages(resources.iso, resources.language, resources.device_language)):
                 attempts += [(tag, name, 0.4), (tag, name, 0.2)] if i == 0 else [(tag, name, 0.3)]
             for tag, name, temperature in attempts:
                 prompt = GUIDE_PROMPT.format(name=name, tag=tag, bible_step=bible_step)
@@ -364,7 +363,7 @@ class Assistant:
             else:
                 raise AssistantError("Gloo's guide didn't describe the resources")
             try:
-                labels = self.labels(tag, name)
+                labels = self.labels(tag or name, name)  # a language without an ISO code is kept by name
             except (AssistantError, OverBudget) as e:
                 logger.warning("Labels stay in English: %s", e)
                 labels = dict(LABELS)
@@ -378,7 +377,7 @@ class Assistant:
         return self._guides[key]
 
     def chat(self, resources: Resources, messages: list[dict]) -> str:
-        _, name = note_language(resources.iso, resources.countries, resources.country)
+        _, name = note_language(resources.iso, resources.language, resources.device_language)
         reply = self._complete(
             [{"role": "system", "content": CHAT_PROMPT.format(facts=resources.facts(), name=name)}, *messages],
             max_tokens=400,

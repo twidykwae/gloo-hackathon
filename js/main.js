@@ -707,7 +707,7 @@ function choose(language, candidate) {
   showResources(language)
 }
 
-function showResources(language, { eyebrow = 'You chose' } = {}) {
+function showResources(language, { eyebrow = 'Your choice:' } = {}) {
   el.resourcesEyebrow.textContent = eyebrow
   if (language.native) {
     el.resourcesHeading.textContent = language.native
@@ -803,7 +803,11 @@ async function loadGuide(language) {
   el.guideLanguage.textContent = ''
   let guide
   try {
-    guide = await postJson(config.guideUrl, { grn_id: language.id, country: state.location?.code ?? null })
+    guide = await postJson(config.guideUrl, {
+      grn_id: language.id,
+      country: state.location?.code ?? null,
+      device_language: navigator.language ?? null, // the fallback when the chosen language doesn't work out
+    })
   } catch (err) {
     console.warn('No guide note', err)
     if (!isCurrent(language)) return
@@ -830,7 +834,8 @@ async function loadGuide(language) {
 /** A language's name in itself ("es" → "español"), when the browser knows it. */
 function ownName(tag) {
   try {
-    return tag ? new Intl.DisplayNames([tag], { type: 'language' }).of(tag) : ''
+    const name = tag ? new Intl.DisplayNames([tag], { type: 'language' }).of(tag) : ''
+    return name === tag ? '' : name // a code it doesn't know comes back unchanged, e.g. "tzo"
   } catch {
     return ''
   }
@@ -889,7 +894,7 @@ async function ask(question) {
   resizeInput()
   updateSendButton()
   const languageId = assistant.languageId
-  const body = chatRequest(languageId, state.location?.code, assistant.log, question)
+  const body = chatRequest(languageId, state.location?.code, assistant.log, question, navigator.language)
   assistant.log.push({ role: 'user', content: question })
   addMessage('user', question)
   const typing = showTyping()

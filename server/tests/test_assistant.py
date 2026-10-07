@@ -307,3 +307,17 @@ def test_a_failed_note_falls_back_to_english_when_the_device_language_is_unknown
     guide = Assistant("k", "m", budget, http=httpx.Client(transport=httpx.MockTransport(handler))).guide(yoruba)
     assert guide["language"] == "English"
     assert "Write only in Yoruba" in prompts[0] and "Write only in English" in prompts[2]
+
+
+def test_natural_repetition_is_not_a_loop():
+    # A real Twi reply: all three questions open with "Mɛnadɛn na ɛbɛma me".
+    twi = (
+        "Wɔatɔn wo. Wɔ 5fish no so, wobetumi ate asɛm a ɛfa Onyankopɔn ho ne dwom wɔ wo kasa mu. "
+        "Wobetumi nso akenkan Bible wɔ wo kasa mu wɔ YouVersion Bible App no mu.\n---\n"
+        "Mɛnadɛn na ɛbɛma me ate a internet nni hɔ?\n"
+        "Mɛnadɛn na ɛbɛma me akenkan Bible no?\n"
+        "Mɛnadɛn na ɛbɛma me de akyɛ m'abusua?"
+    )
+    assert not looks_broken(twi, max_chars=2000)
+    assert looks_broken("laj cha'el ti " * 30)
+    assert looks_broken("wɔ wo kasa mu " * 8)

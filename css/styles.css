@@ -26,7 +26,7 @@
   --dot: #cfc6b5;
 
   /* Accents */
-  --accent: #d9481f;
+  --accent: #1783a6;
   --on-accent: #fff7f0;
   --near: #2f7d4f;
   --near-bg: rgba(47, 125, 79, 0.12);
@@ -438,7 +438,7 @@ h2[tabindex='-1']:focus {
   background: var(--accent);
   color: var(--on-accent);
   box-shadow:
-    0 14px 30px -10px rgba(217, 72, 31, 0.6),
+    0 14px 30px -10px rgba(31, 136, 217, 0.6),
     inset 0 -6px 0 rgba(0, 0, 0, 0.08);
   cursor: pointer;
   transition: transform 0.15s;

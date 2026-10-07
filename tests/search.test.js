@@ -21,9 +21,13 @@ describe('fold', () => {
     assert.equal(fold('PORTUGUÊS'), 'portugues')
   })
 
-  it('leaves other scripts alone', () => {
-    assert.equal(fold('Русский'), 'русский')
+  it('keeps the vowel signs of scripts such as Hindi and Amharic', () => {
+    assert.equal(fold('हिन्दी'), 'हिन्दी')
     assert.equal(fold('አማርኛ'), 'አማርኛ')
+  })
+
+  it('folds Cyrillic accents too, so й and и match', () => {
+    assert.equal(fold('Русский'), fold('русскии'))
   })
 })
 

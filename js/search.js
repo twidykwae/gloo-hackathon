@@ -1,9 +1,13 @@
 // Finding a language or a country by what someone typed, for the "new
 // dialect" form. No DOM, fully tested.
 
-/** Lowercase and without accents, so "espanol" finds "Español". */
+/**
+ * Lowercase and without accents, so "espanol" finds "Español". Only the
+ * accents Latin, Greek and Cyrillic letters carry are dropped: in scripts such
+ * as Hindi's, the marks are vowels, and dropping them would change the word.
+ */
 export function fold(text) {
-  return String(text).normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().trim()
+  return String(text).normalize('NFD').replace(/[\u0300-\u036f]/g, '').normalize('NFC').toLowerCase().trim()
 }
 
 /** 0: the name starts with it, 1: one of its words does, 2: it's inside the name, -1: no match. */

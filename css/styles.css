@@ -1560,11 +1560,6 @@ body:not([data-phase='recording']) .level::before {
   font: 600 14px/1.25 var(--sans);
   text-align: left;
   cursor: pointer;
-  transition: background 0.15s;
-}
-
-.outline-button:hover {
-  background: var(--card);
 }
 
 .outline-icon {
@@ -1724,10 +1719,6 @@ body:not([data-phase='recording']) .level::before {
 .dialect-submit:disabled {
   opacity: 0.35;
   cursor: default;
-}
-
-.dialect-submit:disabled:hover {
-  background: var(--ink);
 }
 
 /* ------------------------------------------------------------ 7. thanks */

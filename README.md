@@ -75,8 +75,9 @@ Meta's model, a few GB.
 
 ## Tests
 
-Page (54 tests: converting model output including real saved responses,
-names, samples and dialects, links, QR codes, GPS-to-country, WAV encoding):
+Page (79 tests: converting model output including real saved responses,
+names, samples and dialects, links, QR codes, language and country search,
+GPS-to-country, WAV encoding, the Bible and Gloo AI helpers):
 
 ```bash
 npm test
@@ -103,6 +104,8 @@ cd server
 | `js/results.js` | **Converts raw model output into guesses**, plus small helpers for showing them. No DOM, fully tested |
 | `js/location.js` | Browser GPS to country code |
 | `js/qr.js` | QR codes for the Resources screen's links, as SVG |
+| `js/search.js` | Finding a language or country by what was typed, for the new-dialect form. No DOM, fully tested |
+| `js/suggest.js` | The suggestion list under a text box (an accessible combobox) |
 | `js/bible.js` | Turns the server's `/bible/{id}` answer into a Resources screen link. No DOM, fully tested |
 | `js/vendor/qrcode.mjs` | The QR encoder, [qrcode-generator](https://github.com/kazuhikoarase/qrcode-generator) 2.0.4 (MIT), copied in so it works offline |
 | `data/languages.json` | All 6,816 GRN languages: name, native name (173 of them), ISO code, macrolanguage code, parent, whether a sample exists, countries |
@@ -162,7 +165,19 @@ Record ──▶ recording ──tap, or 20 s──▶ Detect + consent popup �
   (`compareCount`). Samples turn grey once heard. "Show all rankings" and the
   back button go to Rankings.
 - **Rankings.** Every guess as a card (see "The rankings screen"). Tapping a
-  card opens it on the Sample screen.
+  card opens it on the Sample screen. At the bottom, "No match, record
+  again" and "None, enter new dialect".
+- **New dialect.** "Tell us about your dialect": parent language, dialect
+  name and country, all three needed. The parent language box suggests the
+  model's top guesses before anything is typed, then searches the whole GRN
+  catalog by English or native name. The country box suggests from every
+  country the browser knows, filled in from "Near me" if it found one. Both
+  still take anything typed. Submitting always saves a report
+  (`backend.saveNewDialect`, see "Still to decide"). Then it opens Resources
+  for the parent language ("Thank you! The closest we have"), or, if the
+  parent isn't in the catalog either, a thank-you screen. After "No, don't
+  keep it", the form says only what's typed will be saved: there's no
+  recording to go with it, so the report is a lead for the team.
 - **Choosing** a language or dialect saves the choice (`backend.saveChoice`,
   see "Still to decide") and opens Resources.
 - **Resources.** Links for the chosen language, from `resources` in
@@ -174,7 +189,7 @@ Record ──▶ recording ──tap, or 20 s──▶ Detect + consent popup �
   "Try again".
 
 Body has `data-phase`: `idle`, `recording`, `consent`, `waiting`, `sample`,
-`results`, `resources` or `error`.
+`results`, `resources`, `dialect`, `thanks` or `error`.
 
 ## Model output and how it's converted
 
@@ -260,7 +275,8 @@ studio recordings are the easy case.)
 | **Near me** | Asks for the location the first time, then marks guesses and dialects spoken in that country "Near you" and lists those dialects first. It doesn't hide or reorder guesses. A variety counts if its parent language is listed. When every dialect of a guess is local, only the card is marked. Tap again to turn it off |
 | **Show more** | Shows 10 more cards. The first page is 10 (`pageSize` in `js/config.js`) |
 | **Tapping a card** | Anywhere on its top row but the play button: opens that guess on the Sample screen |
-| **None of these, record again** | Back to Record |
+| **No match, record again** | Back to Record |
+| **None, enter new dialect** | The new-dialect form (see "The flow") |
 
 ## Styling hooks
 
@@ -269,7 +285,11 @@ attributes and a few custom properties, listed here.
 
 | Hook | Meaning |
 | --- | --- |
-| `body[data-phase]` | `idle`, `recording`, `consent`, `waiting`, `sample`, `results`, `resources` or `error` |
+| `body[data-phase]` | `idle`, `recording`, `consent`, `waiting`, `sample`, `results`, `resources`, `dialect`, `thanks` or `error` |
+| `.results-end .outline-button` | The two buttons at the bottom of Rankings, each with an `.outline-icon` (`.dot-icon` or `.plus-icon`) |
+| `#dialect-form` | The new-dialect form: `.field`s with a `label` and an `input`. `#dialect-note` shows after a "No" to keeping the recording |
+| `.suggest > ul.suggestions` | A suggestion list under a box: `li.suggestion` with `.suggestion-label` and an optional `.suggestion-detail`; `[aria-selected="true"]` is the one picked with the arrow keys |
+| `#resources-eyebrow` | "You chose", or "Thank you! The closest we have" after a new dialect |
 | `#app-bar`, `#step` | "Step 1 of 3" and so on. Hidden on the Sample, Resources and error screens, which have their own `.toolbar` |
 | `#record-button[data-recording="true"]` | Recording in progress; shows `.stop-icon` instead of `.mic-icon` |
 | `.mic-ring-fill` | The ring that fills while recording, over `--max-recording` (set on `:root` from `maxRecordingSeconds`) |
@@ -302,14 +322,24 @@ Views are hidden with the HTML `hidden` attribute; `[hidden]` is forced to
 - **An "unsure" state.** When the top guess is very low (under a few
   percent), the model doesn't really know; the page could say so and lean on
   location and the helper.
-- **Storage for consent answers, kept recordings and choices.** For example,
-  SQLite on the model server: set `consentUrl`, `recordingUrl` and
-  `choiceUrl` in `js/config.js`. Each consent answer is
+- **Storage for consent answers, kept recordings, choices and new
+  dialects.** For example, SQLite on the model server: set `consentUrl`,
+  `recordingUrl`, `choiceUrl` and `dialectUrl` in `js/config.js`. Each
+  consent answer is
   `{ sessionId, consent, answeredAt, recordingType, recordingBytes, recordingSeconds }`,
   and a kept recording is posted with the same data as `meta`. Each choice is
   `{ sessionId, consent, languageId, languageName, modelLabel, modelRank, modelConfidence, chosenAt }`.
   A choice with a kept recording (same `sessionId`) is a labelled training
-  example: the recording, and the language its speaker picked.
+  example: the recording, and the language its speaker picked. Each new
+  dialect is
+  `{ sessionId, consent, parentLanguageId, parentLanguageName, dialectName, countryCode, countryName, modelGuesses, submittedAt }`;
+  `parentLanguageId` and `countryCode` are `null` when what was typed isn't
+  a known language or country. With `consent: true` the kept recording has
+  the same `sessionId`, so it's training data for a language the model
+  doesn't know yet. With `consent: false` there's no recording: it's a lead
+  for the team to follow up.
+- **Reviewing new dialects.** They're typed freely ("Mineiro", "mineiro",
+  "Minas"), so someone should check them before they're used for training.
 - **More resources.** The Resources screen only has the 5fish link so far.
   Add links to `resources` in `js/config.js`.
 - **How to ask for consent without relying on reading.** The popup text is a

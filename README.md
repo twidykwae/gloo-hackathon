@@ -1,15 +1,16 @@
 # Language ID (web)
 
 Record someone speaking, ask for consent to keep the recording, send it to the
-language-ID model, and show a ranked list of languages. It's
-all on one page and one URL.
+language-ID model, then let the person listen to samples of the best matches,
+choose their language, and get links for it. It's all on one page and one
+URL.
 
 Plain HTML, JavaScript and CSS for the page, with no build step. A small
 Python server in `server/` runs the language-ID model and serves the page.
 
 **Status:** the whole flow works with **real results from Meta's
-language-ID model** (`facebook/mms-lid-4017`). Storing consent answers and kept
-recordings isn't built yet (see "Still to decide").
+language-ID model** (`facebook/mms-lid-4017`). Storing consent answers, kept
+recordings and choices isn't built yet (see "Still to decide").
 
 ## Run it
 
@@ -35,7 +36,7 @@ PowerShell:
 $env:LID_IDENTIFIER = "stub"
 ```
 
-**The page without the server** (for example, for the designer). Serve just
+**The page without the server** (for example, for styling work). Serve just
 the page files and add `?backend=mock`. The page then uses a saved real
 response instead of calling the model:
 
@@ -71,8 +72,8 @@ Meta's model, a few GB.
 
 ## Tests
 
-Page (36 tests: converting model output including real saved responses,
-filters, GPS-to-country, WAV encoding):
+Page (54 tests: converting model output including real saved responses,
+names, samples and dialects, links, QR codes, GPS-to-country, WAV encoding):
 
 ```bash
 npm test
@@ -89,19 +90,21 @@ cd server
 
 | File | Job |
 | --- | --- |
-| `index.html` | All the markup: record button, loading spinner, results, consent popup, and `<template>`s for a results row and a variety row |
-| `css/styles.css` | Design. Almost empty; it belongs to the designer. See "Styling hooks" |
+| `index.html` | All the markup: the Record, Detect, Rankings, Sample, Resources and error screens, the consent popup, and `<template>`s for the repeated parts |
+| `css/styles.css` | The look, from the team's Claude Design prototype: colors, fonts and sizes as tokens at the top, then one section per screen. See "Styling hooks" |
 | `js/main.js` | Wires everything together and runs the flow |
-| `js/recorder.js` | Microphone recording (`MediaRecorder`) |
+| `js/recorder.js` | Microphone recording (`MediaRecorder`), and the microphone level for the bars |
 | `js/wav.js` | Converts the recording to the 16 kHz WAV the model server reads |
-| `js/backend.js` | **Every server call**: identify, save consent, keep recording. Mock and real versions |
-| `js/config.js` | Settings: real or mock server, URLs, page size, recording limit |
-| `js/results.js` | **Converts raw model output into rows**, and filters them. No DOM, fully tested |
+| `js/backend.js` | **Every server call**: identify, save consent, keep recording, save choice. Mock and real versions |
+| `js/config.js` | Settings: real or mock server, URLs, the Resources screen's links, page size, recording limit |
+| `js/results.js` | **Converts raw model output into guesses**, plus small helpers for showing them. No DOM, fully tested |
 | `js/location.js` | Browser GPS to country code |
-| `data/languages.json` | All 6,816 GRN languages: name, ISO code, macrolanguage code, parent, whether a sample exists, countries |
+| `js/qr.js` | QR codes for the Resources screen's links, as SVG |
+| `js/vendor/qrcode.mjs` | The QR encoder, [qrcode-generator](https://github.com/kazuhikoarase/qrcode-generator) 2.0.4 (MIT), copied in so it works offline |
+| `data/languages.json` | All 6,816 GRN languages: name, native name (173 of them), ISO code, macrolanguage code, parent, whether a sample exists, countries |
 | `data/countries.geojson` | Country borders (Natural Earth, public domain) for GPS to country, offline |
 | `data/samples/` | Saved model responses: real ones from Meta's model, plus a made-up LAMP-format one (see below) |
-| `tools/build_data.py` | Rebuilds the two data files from the 5fish database |
+| `tools/build_data.py` | Rebuilds `data/languages.json` from the 5fish database, keeping the sample flags `mark_samples.py` wrote. Downloads the country borders only if the file is missing, or with `--borders` |
 | `tools/mark_samples.py` | Marks languages with no sample, and "headings", in `data/languages.json` from GRN's data export. Run it after `build_data.py` |
 | `tools/database_5fish.db` | The 5fish apps' offline database (not in git), read by `build_data.py` |
 | `server/app/main.py` | The server: `POST /predict` runs the model; also serves the page (`/`, `css/`, `js/`, `data/` only) |
@@ -115,23 +118,54 @@ cd server
 
 ## The flow
 
+The screens follow the team's Claude Design prototype.
+
 ```
-idle ──tap──▶ recording ──tap, or 20 s limit──▶ consent popup ──answer──▶ waiting ──▶ results
-                                  │                                     (spinner, only if
-                                  └── recording sent to the model now    results aren't back)
+Record ──▶ recording ──tap, or 20 s──▶ Detect + consent popup ──▶ Sample (best match) ──"This is my language"──▶ Resources
+                                            │ Cancel                 ▲   │ Show all rankings              │
+                                            ▼                        │   ▼                                │ Show all rankings
+                                          Record                     └─ Rankings ◀────────────────────────┘
+                                                                    (tap a guess)
 ```
 
-- **The recording goes to the model as soon as recording stops.** The model
-  works while the person answers the consent question, so the spinner often
-  never appears.
-- **The consent answer is always saved** (`backend.saveConsent`). The
+- **Record.** The big button starts and stops recording. While recording, a
+  ring around it fills over the time limit (`maxRecordingSeconds` in
+  `js/config.js`, 20 seconds), bars show the microphone level, and a timer
+  counts up.
+- **Recordings under 2 seconds aren't sent** (`minRecordingSeconds`).
+  Tapping Stop earlier asks the person to keep talking instead. Under about
+  0.3 seconds, the browser can't even read a recording back, which caused
+  "Unable to decode audio data" before this check existed.
+- **Detect.** The recording goes to the model as soon as recording stops. The
+  screen shows the real progress: *Preparing your recording* (converting it to
+  WAV), *Identifying the language* (the model), *Finding it in our catalog*
+  (matching to GRN languages). The consent popup sits on top of it, so the
+  model often finishes before the person answers. **Cancel** stops the
+  request and goes back to Record.
+- **Consent.** The answer is always saved (`backend.saveConsent`). The
   recording is only kept (`backend.saveRecording`) after a "yes". Identifying
-  the language happens either way.
-- **An answer is required:** Escape doesn't close the popup.
-- **Recordings under 2 seconds aren't sent** (`minRecordingSeconds` in
-  `js/config.js`). The person sees a message asking them to speak longer.
-  Under about 0.3 seconds, the browser can't even read the recording back,
-  which caused "Unable to decode audio data" before this check existed.
+  the language happens either way. An answer is required: Escape doesn't
+  close the popup.
+- **Sample.** Results open on the best match, one guess at a time: its name,
+  match ring and sample. A guess with one language has a big player (bars
+  fill in as it plays) and a "This is my language" button. A guess with
+  several lists its dialects, each with its own sample and a choose button.
+  Previous and Next move through the guesses; dots show the first five
+  (`compareCount`). Samples turn grey once heard. "Show all rankings" and the
+  back button go to Rankings.
+- **Rankings.** Every guess as a card (see "The rankings screen"). Tapping a
+  card opens it on the Sample screen.
+- **Choosing** a language or dialect saves the choice (`backend.saveChoice`,
+  see "Still to decide") and opens Resources.
+- **Resources.** Links for the chosen language, from `resources` in
+  `js/config.js`, each with a QR code so it can be opened on the person's own
+  phone. For now there is one: the language's 5fish page. "Start over" goes
+  back to Record.
+- **Errors** (no microphone permission, server down) get their own screen with
+  "Try again".
+
+Body has `data-phase`: `idle`, `recording`, `consent`, `waiting`, `sample`,
+`results`, `resources` or `error`.
 
 ## Model output and how it's converted
 
@@ -155,31 +189,40 @@ in `data/samples/`:
 - **Some labels are umbrella "macrolanguage" codes** (`ara`, `que`, `zho`).
   These map to their member languages.
 - **The full list matters.** A low-resource language can rank far down the
-  list overall but near the top for its country (see Filters).
+  list overall; "Near me" marks it when it's spoken in the person's country.
 
 **Converted guess** (`toCandidates` in `js/results.js`), one per prediction:
 
 ```js
-{ rank: 1, label: "eng", name: "English", confidence: 0.505, percent: 50.46, known: true,
+{ rank: 1, label: "eng", name: "English", native: null, sampleId: 25,
+  confidence: 0.505, percent: 50.46, known: true,
   languages: [
-    { id: 5185, name: "English", iso: "eng",
-      contentUrl: "https://5fish.mobi/5185", countries: [...], parentCountries: [...] },
-    { id: 25, name: "English: USA", ... },
+    { id: 25, name: "English: USA", native: null, iso: "eng", hasSample: true,
+      countries: [...], parentCountries: [...] },
     ...
   ] }
 ```
 
+- **`native`** is the name in the language itself ("Русский", "አማርኛ"), or
+  `null`. The 5fish database has one for only 173 languages, mostly larger
+  ones. `tools/build_data.py` picks it from the database's alternate names: a
+  name tagged as written in the language itself, else an untagged name in a
+  non-Latin script. The second rule is a good guess, not a guarantee, and a
+  few are odd ("简体中文", "Simplified Chinese", for Mandarin).
+- **`sampleId`** is the GRN ID whose sample plays for the guess as a whole:
+  the language it's named after, or, when that has no sample (a heading such
+  as English), its first listed language that has one. `null` if none has.
 - **Each guess lists the GRN languages it could mean,** from
-  `data/languages.json`, shortest name first. On the page, a guess with one
-  language is a single row with its "Play sample" button; one with several
-  gets a "varieties" list.
+  `data/languages.json`, shortest name first. On the page, each guess is a
+  card with a play button; one with several languages also gets a "dialects"
+  list under it.
 - **"Headings" aren't listed.** A heading is a language with no recording of
   its own whose varieties have recordings: "English" (#5185) has none, but
   "English: USA" does. `tools/mark_samples.py` marks the 336 headings
   (`"heading": true`). A guess is still named after its heading, and its
   varieties are still local where the heading is listed, but the heading
   isn't one of its languages. So a heading with one variety (Kilega, with
-  Kisonga) becomes a single row.
+  Kisonga) becomes a guess with one language.
 - **The guess is named after the language its varieties belong to**
   ("Sindhi", not its variety "Charan").
 - **`known: false`** means no GRN language matches the label. 151 of the
@@ -191,47 +234,54 @@ in `data/samples/`:
 
 **What real scores look like.** On a clear English clip, English came first
 at about 50%. On a Coast Tsimshian recording, a low-resource language, nothing
-scored above 1.4%, and Tsimshian itself ranked about 45th to 170th. With
-"Near me" in Canada, Tsimshian moved up to about 9th. Expect the second
-pattern for many of the languages GRN serves.
+scored above 1.4%, and Tsimshian itself ranked about 45th to 170th. Expect
+the second pattern for many of the languages GRN serves. (GRN's own Amharic
+sample, played in as the microphone, came out as Amharic at over 99%, but
+studio recordings are the easy case.)
 
-## Filters
+## The rankings screen
 
-| Control | What it does |
+| Part | What it does |
 | --- | --- |
-| **All results / Near me** | "All" is the model's raw ranking. "Near me" asks for GPS permission (the first time only), finds the country, and keeps only languages the 5fish data lists there. A variety counts if its parent language is listed. Within each guess, varieties listed for the country itself come first. |
-| **Minimum confidence** | A slider whose range adapts to each recording. Far left shows everything; far right shows only the top guess. In between it's logarithmic, covering the three powers of ten below the top score, so it's as useful when the top guess is 50% (clear English) as when it's 0.7% (Tsimshian). The value after it shows the current minimum. While dragging, only that value and the "Showing X of Y" count change; the list updates when the slider is let go, so the page doesn't jump around. It resets to "Any" for each new recording |
-| **Show more** | Shows 10 more rows. The first page is 10 (`pageSize` in `js/config.js`) |
-
-The list's numbering is the browser's own (1, 2, 3…). The model's rank is
-kept on each row as `data-rank`; it can skip numbers, because guesses the
-catalog doesn't have are dropped.
+| **Cards** | One per guess, in the model's order, numbered 01, 02, … by their place in the list. The model's rank is kept as `data-rank`; it can skip numbers, because guesses the catalog doesn't have are dropped |
+| **Names** | The name in the language itself when we have it (`native`), with the English name under it; otherwise just the English name |
+| **Match ring** | The model's confidence for the guess. Its color deepens with how close the guess is to the best one, so the top guess is always the strongest blue |
+| **Play** | Plays the guess's sample (`sampleId`), see "Playing language samples" |
+| **Dialects** | A guess covering several GRN languages lists them under a "N dialects" toggle; the top guess starts open. The model can't rank them (they share one ISO code), so they have no match ring. A dialect's name drops the guess's name ("Chamula" under Tzotzil), and its countries are listed under it |
+| **Near me** | Asks for the location the first time, then marks guesses and dialects spoken in that country "Near you" and lists those dialects first. It doesn't hide or reorder guesses. A variety counts if its parent language is listed. When every dialect of a guess is local, only the card is marked. Tap again to turn it off |
+| **Show more** | Shows 10 more cards. The first page is 10 (`pageSize` in `js/config.js`) |
+| **Tapping a card** | Anywhere on its top row but the play button: opens that guess on the Sample screen |
+| **None of these, record again** | Back to Record |
 
 ## Styling hooks
 
-For the designer. The page works unstyled, and nothing in the JS depends on
-CSS.
+All styles are in `css/styles.css`, none in the markup. The JS only sets
+attributes and a few custom properties, listed here.
 
 | Hook | Meaning |
 | --- | --- |
-| `body[data-phase]` | `idle`, `recording`, `consent`, `waiting`, `results` or `error` |
-| `#record-button[data-recording="true"]` | Recording in progress (the text also changes: Start/Stop recording) |
-| `#record-timer`, `#record-seconds` | Seconds recorded, shown only while recording |
-| `#loading .spinner` | The loading spinner (a placeholder spin rule is in `styles.css`) |
-| `#consent-dialog` | A native `<dialog>`; style its backdrop with `#consent-dialog::backdrop` |
-| `#results-list > li.result` | One guess: `.result-name`, `.result-iso` (the model's code), `.result-confidence`, `.result-local` ("Near you" badge). `data-count` is how many languages it covers; `data-label` is the model's code; `data-rank` is the model's rank |
-| `li.result[data-count="1"] .result-play` | A guess that means one language gets a "Play sample" button (see "Playing language samples") |
-| `.result-play[data-playing="true"]`, `.language-play[data-playing="true"]` | That button's sample is playing (the text also changes: Play/Stop sample) |
-| `.result-play[data-sample="missing"]`, `.language-play[data-sample="missing"]` | No sample to play: the button is disabled and says "No sample" or "Sample unavailable" |
-| `.result-varieties` | A guess covering several languages gets a native `<details>` instead: `<summary>` with `.result-variety-count`, then `ul.result-languages` |
-| `li.language` | One variety in that list: `.language-name`, `.language-local`, `.language-play` |
-| `#min-confidence`, `#min-confidence-value` | The confidence slider (`<input type="range">`) and the `<output>` showing its value |
-| `#results-summary`, `#location-status`, `#results-empty` | Status text |
-| `#test-playback` | **Testing only:** a player for the last recording, with `#test-playback-info` (length, size, format). Shown after recording when `showTestPlayback` is on in `js/config.js`; turn it off before real use |
+| `body[data-phase]` | `idle`, `recording`, `consent`, `waiting`, `sample`, `results`, `resources` or `error` |
+| `#app-bar`, `#step` | "Step 1 of 3" and so on. Hidden on the Sample, Resources and error screens, which have their own `.toolbar` |
+| `#record-button[data-recording="true"]` | Recording in progress; shows `.stop-icon` instead of `.mic-icon` |
+| `.mic-ring-fill` | The ring that fills while recording, over `--max-recording` (set on `:root` from `maxRecordingSeconds`) |
+| `#record-level > span` | One bar each; `--level` is 0 to 1 |
+| `#detect-steps > li[data-state]` | `pending`, `active` or `done` |
+| `#near-me[aria-pressed="true"]` | "Near me" is on |
+| `#results-list > li.card` | One guess: `.card-open` (a button around `.card-name` and `.card-subname` that opens it on the Sample screen), `.card-name`, `.card-subname` (English name, only with a native name), `.card-local` ("Near you"), `.match`, `.card-play`, `.card-toggle[aria-expanded]`, `ul.dialects`. `data-label` is the model's code, `data-rank` its rank, `data-count` how many languages it covers. `--i` is its place on the page, for staggering the fade-in |
+| `.match` | The match ring: `--pct` (0 to 100) fills it, `--strength` (0 to 1) colors it |
+| `li.dialect` | One dialect: `.dialect-name`, `.dialect-region`, `.dialect-local`, `.dialect-play` |
+| `#sample-dots > li` | `data-current="true"` for the guess on screen, `data-seen="true"` for ones already opened |
+| `#sample-single`, `#sample-dialects-block` | The Sample screen's two layouts: one language (big `#sample-play` and `#sample-wave`), or several (`li.sample-dialect` rows with `.choose-button`) |
+| `#sample-wave > span` | Progress bars: `--height` is the bar's height; `.played` once playback has passed it |
+| `.sample-play[data-played="true"]` | That sample was already heard |
+| `#resources-list > li.resource` | One link: `.resource-link`, `.resource-initial`, `.resource-title`, `.resource-domain`, `.qr` (an inline SVG drawn in `currentColor`) |
+| `.play-button[data-playing="true"]` | Its sample is playing; the CSS draws a square stop icon instead of the play triangle. `--icon` on a button sets the icon size |
+| `.play-button[data-sample="missing"]` | No sample to play: disabled, labelled "No sample" or "Sample unavailable" |
+| `#consent-dialog` | A native `<dialog>`; its backdrop is `#consent-dialog::backdrop` |
+| `#test-playback` | **Testing only:** a player for the last recording. Shown after recording when `showTestPlayback` is on in `js/config.js`; turn it off before real use |
 
-Views are hidden with the HTML `hidden` attribute. If the CSS gives a view
-`display: flex` or similar, add `[hidden] { display: none !important; }` so
-hiding still works.
+Views are hidden with the HTML `hidden` attribute; `[hidden]` is forced to
+`display: none` so it wins over `display: flex` rules.
 
 ## Still to decide
 
@@ -242,17 +292,23 @@ hiding still works.
 - **An "unsure" state.** When the top guess is very low (under a few
   percent), the model doesn't really know; the page could say so and lean on
   location and the helper.
-- **Storage for consent answers and kept recordings.** For example, SQLite on
-  the model server: set `consentUrl` and `recordingUrl` in `js/config.js`.
-  Each consent answer is
+- **Storage for consent answers, kept recordings and choices.** For example,
+  SQLite on the model server: set `consentUrl`, `recordingUrl` and
+  `choiceUrl` in `js/config.js`. Each consent answer is
   `{ sessionId, consent, answeredAt, recordingType, recordingBytes, recordingSeconds }`,
-  and a kept recording is posted with the same data as `meta`.
+  and a kept recording is posted with the same data as `meta`. Each choice is
+  `{ sessionId, consent, languageId, languageName, modelLabel, modelRank, modelConfidence, chosenAt }`.
+  A choice with a kept recording (same `sessionId`) is a labelled training
+  example: the recording, and the language its speaker picked.
+- **More resources.** The Resources screen only has the 5fish link so far.
+  Add links to `resources` in `js/config.js`.
 - **How to ask for consent without relying on reading.** The popup text is a
   placeholder.
-- **Choosing a language without hearing its sample (future idea).** When a
-  sample can't play (GRN has none, a 404, or GRN can't be reached, a 502),
-  gray out the "Play sample" button and offer a "This is my language" button
-  next to it. The person can then pick the language by its name alone.
+- **Fonts without internet.** The fonts (Geist, Geist Mono, Instrument
+  Serif) load from Google Fonts. Offline, the page falls back to system
+  fonts and still works. For a field laptop, copy the font files into the
+  project. Instrument Serif has only Latin letters, so native names in other
+  scripts (Русский, አማርኛ) always use a fallback serif.
 - **GPS at the site.** Border towns can land in the wrong country (the
   borders are simplified). A migrant's location may not say much about their
   language. The browser's permission prompt is text.
@@ -287,17 +343,21 @@ is the GRN language ID (the `id` in `data/languages.json`, not an ISO code).
 
 ### On the page
 
-- **The buttons.** `.result-play` is on a guess that means one language;
-  `.language-play` is on each variety in a guess's list. A button finds its
-  language from the nearest list item: `button.closest('[data-id]')`.
+- **The buttons.** On the rankings, `.card-play` on each guess plays its
+  `sampleId` and `.dialect-play` on each dialect plays that language. On the
+  Sample screen, `#sample-play` plays a one-language guess, and each
+  `.sample-dialect` row has its own. All are `.play-button`. A button finds
+  its language with `button.closest('[data-id]')`: a guess's button carries
+  `data-id` itself, a dialect's is on its list item.
 - **One sample at a time.** Tapping another button stops the one playing.
-  Tapping the playing button again stops it. Playback also stops when the
-  list is rebuilt (filters, "Show more") or on "Record again".
-- **No sample.** Languages marked `"noSample": true` get a disabled "No
-  sample" button. That flag comes from GRN's data export, set by
+  Tapping the playing button again stops it. Playback also stops on changing
+  screens or guesses, when the list is rebuilt ("Near me", "Show more"), and
+  on "Record again".
+- **No sample.** Languages marked `"noSample": true` get a disabled play
+  button labelled "No sample". That flag comes from GRN's data export, set by
   `tools/mark_samples.py` (682 languages); the 5fish database says every
   language has a sample, which isn't so. A sample that fails to load gets a disabled
-  "Sample unavailable" button. Both are marked `data-sample="missing"`.
+  button labelled "Sample unavailable". Both are marked `data-sample="missing"`.
 - **Where samples come from** is `sampleUrl` in `js/config.js`:
   `/samples/{id}.mp3` on the server. For the page without the server
   (`?backend=mock`), set it to the GRN address above instead.

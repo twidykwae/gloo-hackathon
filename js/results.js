@@ -1,5 +1,3 @@
-export const contentUrl = (id) => `https://5fish.mobi/${id}`
-
 /** Index data/languages.json by GRN ID, ISO code and macrolanguage code. */
 export function indexLanguages(languages) {
   const byId = new Map()
@@ -34,9 +32,10 @@ function toLanguage(lang, index) {
   return {
     id: lang.id,
     name: lang.name,
+    // The name in the language itself ("Русский"), for the few the database has.
+    native: lang.native ?? null,
     iso: lang.iso ?? null,
-    contentUrl: contentUrl(lang.id),
-    // false when the 5fish database says GRN has no sample recording.
+    // false when GRN has no sample recording (tools/mark_samples.py).
     hasSample: !lang.noSample,
     countries: lang.countries ?? [],
     // A variety counts as local where its parent language is listed.
@@ -47,7 +46,8 @@ function toLanguage(lang, index) {
 const byName = (a, b) => a.name.length - b.name.length || a.name.localeCompare(b.name)
 
 
-function groupName(langs) {
+/** The language a guess is named after: the one most of the others belong to. */
+function groupLead(langs) {
   const ids = new Set(langs.map((lang) => lang.id))
   const children = new Map()
   for (const lang of langs) {
@@ -56,7 +56,16 @@ function groupName(langs) {
   const top = langs
     .filter((lang) => !ids.has(lang.parent))
     .sort((a, b) => (children.get(b.id) ?? 0) - (children.get(a.id) ?? 0) || a.name.length - b.name.length)
-  return top[0]?.name ?? null
+  return top[0] ?? null
+}
+
+/**
+ * The sample a guess's own play button plays: its lead language's, or when
+ * that has none (a heading such as English), the first listed language with one.
+ */
+function sampleFor(lead, languages) {
+  const own = languages.find((lang) => lang.id === lead?.id)
+  return (own?.hasSample ? own : languages.find((lang) => lang.hasSample))?.id ?? null
 }
 
 /**
@@ -79,12 +88,16 @@ export function toCandidates(response, index) {
     const confidence = Number(prediction.probability) || 0
     const matches = resolve(label, kind, index)
     const languages = listed(matches).map((lang) => toLanguage(lang, index)).sort(byName)
+    const lead = groupLead(matches)
     return {
       rank: i + 1,
       label,
       confidence,
       percent: Math.round(confidence * 10000) / 100,
-      name: groupName(matches),
+      name: lead?.name ?? null,
+      native: lead?.native ?? null,
+      // GRN ID of the sample for the guess as a whole; null if none of its languages has one.
+      sampleId: sampleFor(lead, languages),
       // false for labels the 5fish catalog doesn't have.
       known: languages.length > 0,
       languages,
@@ -94,6 +107,8 @@ export function toCandidates(response, index) {
 
 /** "50%", "5.9%", "0.14%": enough digits to tell low scores apart. */
 export function formatPercent(percent) {
+  // Rounding 99.6 up would claim certainty the model doesn't have.
+  if (percent > 99 && percent < 100) return '>99%'
   if (percent >= 10) return `${Math.round(percent)}%`
   if (percent >= 1) return `${percent.toFixed(1)}%`
   return `${percent.toFixed(2)}%`
@@ -111,17 +126,12 @@ export function isInCountry(language, countryCode) {
   return localLevel(language, countryCode) > 0
 }
 
-export function filterCandidates(candidates, { scope = 'all', country = null, minConfidence = 0 } = {}) {
-  const visible = candidates.filter((c) => c.known && c.confidence >= minConfidence)
-  if (scope !== 'local') return visible
-  return visible
-    .map((c) => ({
-      ...c,
-      languages: c.languages
-        .filter((lang) => isInCountry(lang, country))
-        .sort((a, b) => localLevel(b, country) - localLevel(a, country)),
-    }))
-    .filter((c) => c.languages.length > 0)
+/**
+ * The same languages, those listed for the country first, then those local
+ * through their parent, then the rest, each group in its original order.
+ */
+export function nearFirst(languages, countryCode) {
+  return [...languages].sort((a, b) => localLevel(b, countryCode) - localLevel(a, countryCode))
 }
 
 /** The highest confidence among guesses the catalog knows; 0 if none. */
@@ -129,23 +139,47 @@ export function topConfidence(candidates) {
   return candidates.reduce((top, c) => (c.known && c.confidence > top ? c.confidence : top), 0)
 }
 
+/**
+ * How strong a match looks next to the best one, 0 to 1, for coloring its
+ * ring. The square root keeps weaker guesses from all looking the same.
+ */
+export function matchStrength(confidence, top) {
+  return top > 0 ? Math.sqrt(Math.min(confidence / top, 1)) : 0
+}
 
-export function sliderToConfidence(position, top, { steps = 100, decades = 3 } = {}) {
-  if (position <= 0 || !(top > 0)) return 0
-  return top * 10 ** (-decades * (1 - Math.min(position, steps) / steps))
+/** A dialect's name inside its guess: "Chamula" for "Tzotzil: Chamula" under "Tzotzil". */
+export function shortName(language, groupName) {
+  const prefix = groupName ? `${groupName}: ` : null
+  return prefix && language.name.startsWith(prefix) && language.name.length > prefix.length
+    ? language.name.slice(prefix.length)
+    : language.name
+}
+
+const regionNames = new Intl.DisplayNames(['en'], { type: 'region', fallback: 'code' })
+
+/** "Mexico, Guatemala" for a few countries, "12 countries" for many, "" for none. */
+export function describeCountries(codes, { max = 3 } = {}) {
+  if (codes.length === 0) return ''
+  if (codes.length > max) return `${codes.length} countries`
+  return codes.map((code) => regionNames.of(code)).join(', ')
+}
+
+/**
+ * The Resources screen's links for a language, from config.resources:
+ * {id} and {name} filled in, plus the domain to show ("5fish.mobi").
+ */
+export function resourceLinks(language, resources) {
+  return resources.map(({ title, url }) => {
+    const href = url.replaceAll('{id}', encodeURIComponent(language.id))
+    return {
+      title: title.replaceAll('{name}', language.name),
+      url: href,
+      domain: new URL(href).hostname.replace(/^www\./, ''),
+    }
+  })
 }
 
 /** The first `count` rows, and whether there are more to show. */
 export function firstPage(rows, count) {
   return { rows: rows.slice(0, count), hasMore: rows.length > count }
-}
-
-/** Counts for a summary line such as "Showing 10 of 21". */
-export function summarize(candidates, visible, shown) {
-  return {
-    total: candidates.length,
-    unknown: candidates.filter((c) => !c.known).length,
-    matching: visible.length,
-    shown: Math.min(shown, visible.length),
-  }
 }

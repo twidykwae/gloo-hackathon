@@ -17,6 +17,13 @@ export const config = {
   // Where consent answers and kept recordings go.
   consentUrl: null,
   recordingUrl: null,
+  // Where "This is my language" choices go. With a kept recording (same
+  // sessionId), a choice says which language the recording is in.
+  choiceUrl: null,
+
+  // Links on the last screen, for the chosen language. {id} is its GRN
+  // language ID and {name} its name. Add more here.
+  resources: [{ title: 'Listen to recordings in {name}', url: 'https://5fish.mobi/{id}' }],
 
   // For testing: a player for the last recording, below the results. Turn this
   // off before real users see the page.
@@ -25,6 +32,7 @@ export const config = {
   minRecordingSeconds: 2, // shorter recordings aren't sent
   maxRecordingSeconds: 20,
   pageSize: 10,
+  compareCount: 5, // the Sample screen's dots cover this many top guesses
   mockDelayMs: 2500,
   // Real responses saved from the model server; see data/samples/.
   mockResponse: 'data/samples/mms-english.json',

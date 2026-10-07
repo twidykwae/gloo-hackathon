@@ -2,13 +2,15 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { describe, it } from 'node:test'
 import {
-  filterCandidates,
+  describeCountries,
   firstPage,
   formatPercent,
   indexLanguages,
   isInCountry,
-  sliderToConfidence,
-  summarize,
+  matchStrength,
+  nearFirst,
+  resourceLinks,
+  shortName,
   toCandidates,
   topConfidence,
 } from '../js/results.js'
@@ -16,9 +18,10 @@ import {
 const readJson = (path) => JSON.parse(readFileSync(new URL(path, import.meta.url), 'utf8'))
 
 // A tiny catalog: Tzotzil with two varieties, Mam, two Quechua languages
-// under the umbrella code "que", and Sindhi with a variety that has no sample.
+// under the umbrella code "que", Sindhi with a variety that has no sample,
+// and Ixil with no sample at all.
 const LANGUAGES = [
-  { id: 100, name: 'Tzotzil', iso: 'tzo', countries: ['MX'] },
+  { id: 100, name: 'Tzotzil', native: 'Batsʼi kʼop', iso: 'tzo', countries: ['MX'] },
   { id: 101, name: 'Tzotzil: Chamula', iso: 'tzo', parent: 100 },
   { id: 102, name: 'Tzotzil: Huixtan', iso: 'tzo', parent: 100, countries: ['MX'] },
   { id: 200, name: 'Mam', iso: 'mam', countries: ['GT', 'MX'] },
@@ -32,6 +35,7 @@ const LANGUAGES = [
   { id: 502, name: 'English: British', iso: 'eng', parent: 500 },
   { id: 600, name: 'Kilega', iso: 'lea', countries: ['CD'], noSample: true, heading: true },
   { id: 601, name: 'Kisonga', iso: 'lea', parent: 600 },
+  { id: 700, name: 'Ixil', iso: 'ixl', countries: ['GT'], noSample: true },
 ]
 const index = indexLanguages(LANGUAGES)
 
@@ -79,12 +83,12 @@ describe('toCandidates with ISO codes (Meta’s model)', () => {
     assert.equal(que.name, 'Quechua, Cusco')
   })
 
-  it('fills in each language’s links and countries', () => {
+  it('fills in each language’s details and countries', () => {
     assert.deepEqual(tzo.languages[1], {
       id: 101,
       name: 'Tzotzil: Chamula',
+      native: null,
       iso: 'tzo',
-      contentUrl: 'https://5fish.mobi/101',
       hasSample: true,
       countries: [],
       parentCountries: ['MX'],
@@ -114,6 +118,34 @@ describe('toCandidates with ISO codes (Meta’s model)', () => {
         ['Sindhi', true],
       ],
     )
+  })
+
+  it('gives the guess the native name of the language it is named after', () => {
+    assert.equal(tzo.native, 'Batsʼi kʼop')
+    assert.equal(tzo.languages[0].native, 'Batsʼi kʼop')
+    assert.equal(mam.native, null) // none known
+  })
+
+  it('picks the sample for the guess as a whole: the language it is named after', () => {
+    assert.equal(tzo.sampleId, 100)
+    const [snd] = toCandidates({ label_kind: 'iso639_3', predictions: [{ label: 'snd', probability: 1 }] }, index)
+    assert.equal(snd.sampleId, 400)
+  })
+
+  it('for a heading, picks the first listed variety with a sample', () => {
+    const [eng, lea] = toCandidates(
+      { label_kind: 'iso639_3', predictions: [{ label: 'eng', probability: 0.5 }, { label: 'lea', probability: 0.5 }] },
+      index,
+    )
+    assert.equal(eng.sampleId, 501) // English: USA
+    assert.equal(lea.sampleId, 601)
+  })
+
+  it('has no sample for the guess when none of its languages has one', () => {
+    const [ixl] = toCandidates({ label_kind: 'iso639_3', predictions: [{ label: 'ixl', probability: 1 }] }, index)
+    assert.equal(ixl.sampleId, null)
+    assert.equal(zzz.sampleId, null)
+    assert.equal(zzz.native, null)
   })
 
   it('keeps the confidence and a rounded percent', () => {
@@ -157,6 +189,12 @@ describe('formatPercent', () => {
     assert.equal(formatPercent(5.86), '5.9%')
     assert.equal(formatPercent(0.14), '0.14%')
   })
+
+  it('never rounds up to 100%', () => {
+    assert.equal(formatPercent(99.62), '>99%')
+    assert.equal(formatPercent(98.7), '99%')
+    assert.equal(formatPercent(100), '100%')
+  })
 })
 
 describe('isInCountry', () => {
@@ -172,51 +210,25 @@ describe('isInCountry', () => {
   })
 })
 
-describe('filterCandidates', () => {
-  const candidates = toCandidates(MMS_RESPONSE, index)
+describe('nearFirst', () => {
+  const [tzo] = toCandidates(MMS_RESPONSE, index)
 
-  it('"all" shows every known guess, dropping unknown codes', () => {
-    assert.deepEqual(labels(filterCandidates(candidates)), ['tzo', 'mam', 'que'])
+  it('puts languages listed for the country first, then ones local through their parent', () => {
+    assert.deepEqual(ids(nearFirst(tzo.languages, 'MX')), [100, 102, 101])
   })
 
-  it('"local" keeps guesses with a language listed for the country', () => {
-    assert.deepEqual(labels(filterCandidates(candidates, { scope: 'local', country: 'GT' })), ['mam'])
-    assert.deepEqual(labels(filterCandidates(candidates, { scope: 'local', country: 'PE' })), ['que'])
+  it('keeps every language, in the original order when none is local', () => {
+    assert.deepEqual(ids(nearFirst(tzo.languages, 'GT')), [100, 101, 102])
+    assert.deepEqual(ids(nearFirst(tzo.languages, null)), [100, 101, 102])
   })
 
-  it('"local" lists varieties listed for the country before ones local through their parent', () => {
-    const [tzo] = filterCandidates(candidates, { scope: 'local', country: 'MX' })
-    assert.deepEqual(ids(tzo.languages), [100, 102, 101])
-  })
-
-  it('"local" drops a guess’s languages from other countries', () => {
-    const tzo = { ...candidates[0], languages: [...candidates[0].languages, { ...candidates[1].languages[0], countries: ['GT'] }] }
-    const [filtered] = filterCandidates([tzo], { scope: 'local', country: 'MX' })
-    assert.deepEqual(ids(filtered.languages), [100, 102, 101])
-  })
-
-  it('"local" without a country shows nothing', () => {
-    assert.deepEqual(filterCandidates(candidates, { scope: 'local' }), [])
-  })
-
-  it('drops guesses below the minimum confidence', () => {
-    assert.deepEqual(labels(filterCandidates(candidates, { minConfidence: 0.2 })), ['tzo', 'mam'])
-  })
-
-  it('keeps the model rank after filtering', () => {
-    assert.equal(filterCandidates(candidates, { scope: 'local', country: 'PE' })[0].rank, 4)
-  })
-
-  it('does not change the guesses it was given', () => {
-    filterCandidates(candidates, { scope: 'local', country: 'MX' })
-    assert.equal(candidates[0].languages[0].id, 100)
-    assert.equal(candidates[0].languages.length, 3)
+  it('does not change the list it was given', () => {
+    nearFirst(tzo.languages, 'MX')
+    assert.deepEqual(ids(tzo.languages), [100, 101, 102])
   })
 })
 
-describe('the confidence slider', () => {
-  const close = (actual, expected) => assert.ok(Math.abs(actual - expected) < 1e-12, `${actual} ≈ ${expected}`)
-
+describe('topConfidence and matchStrength', () => {
   it('topConfidence is the best known guess’s score', () => {
     const candidates = toCandidates(MMS_RESPONSE, index)
     assert.equal(topConfidence(candidates), 0.6)
@@ -226,44 +238,79 @@ describe('the confidence slider', () => {
     assert.equal(topConfidence([]), 0)
   })
 
-  it('position 0 means no minimum', () => {
-    assert.equal(sliderToConfidence(0, 0.5), 0)
+  it('matchStrength is 1 for the best guess and the square root of the ratio below it', () => {
+    assert.equal(matchStrength(0.6, 0.6), 1)
+    assert.equal(matchStrength(0.15, 0.6), 0.5)
+    assert.equal(matchStrength(0, 0.6), 0)
   })
 
-  it('the far end is the top score itself', () => {
-    assert.equal(sliderToConfidence(100, 0.5), 0.5)
-    assert.equal(sliderToConfidence(150, 0.5), 0.5) // clamped
-  })
-
-  it('positions in between are logarithmic, over three powers of ten below the top', () => {
-    close(sliderToConfidence(1, 0.5), 0.5 * 10 ** -2.97)
-    close(sliderToConfidence(50, 0.5), 0.5 * 10 ** -1.5)
-    close(sliderToConfidence(67, 0.5), 0.5 * 10 ** -0.99)
-  })
-
-  it('adapts to low scores the same way', () => {
-    close(sliderToConfidence(100, 0.007), 0.007)
-    close(sliderToConfidence(50, 0.007), 0.007 * 10 ** -1.5)
-  })
-
-  it('is 0 when there are no scores', () => {
-    assert.equal(sliderToConfidence(50, 0), 0)
+  it('matchStrength is 0 without a best score, and never over 1', () => {
+    assert.equal(matchStrength(0.3, 0), 0)
+    assert.equal(matchStrength(0.9, 0.6), 1)
   })
 })
 
-describe('firstPage and summarize', () => {
+describe('shortName', () => {
+  it('drops the guess’s name from the front of a dialect’s name', () => {
+    assert.equal(shortName({ name: 'Tzotzil: Chamula' }, 'Tzotzil'), 'Chamula')
+    assert.equal(shortName({ name: 'English: USA' }, 'English'), 'USA')
+  })
+
+  it('keeps names that don’t start with it', () => {
+    assert.equal(shortName({ name: 'Tzotzil' }, 'Tzotzil'), 'Tzotzil')
+    assert.equal(shortName({ name: 'Charan' }, 'Sindhi'), 'Charan')
+    assert.equal(shortName({ name: 'Quechua, Ayacucho' }, 'Quechua, Cusco'), 'Quechua, Ayacucho')
+    assert.equal(shortName({ name: 'Tzotzil: Chamula' }, null), 'Tzotzil: Chamula')
+  })
+})
+
+describe('describeCountries', () => {
+  it('names a few countries', () => {
+    assert.equal(describeCountries(['MX']), 'Mexico')
+    assert.equal(describeCountries(['GT', 'MX']), 'Guatemala, Mexico')
+  })
+
+  it('counts many', () => {
+    assert.equal(describeCountries(['AU', 'GB', 'NZ', 'US']), '4 countries')
+  })
+
+  it('is empty for none', () => {
+    assert.equal(describeCountries([]), '')
+  })
+})
+
+describe('resourceLinks', () => {
+  const language = { id: 101, name: 'Tzotzil: Chamula' }
+
+  it('fills in the GRN ID and name, and shows the domain', () => {
+    const resources = [{ title: 'Listen to recordings in {name}', url: 'https://5fish.mobi/{id}' }]
+    assert.deepEqual(resourceLinks(language, resources), [
+      { title: 'Listen to recordings in Tzotzil: Chamula', url: 'https://5fish.mobi/101', domain: '5fish.mobi' },
+    ])
+  })
+
+  it('drops "www." from the domain and keeps the order', () => {
+    const resources = [
+      { title: 'A', url: 'https://www.example.org/lang/{id}?ref={id}' },
+      { title: 'B', url: 'https://5fish.mobi/{id}' },
+    ]
+    assert.deepEqual(
+      resourceLinks(language, resources).map((link) => [link.url, link.domain]),
+      [
+        ['https://www.example.org/lang/101?ref=101', 'example.org'],
+        ['https://5fish.mobi/101', '5fish.mobi'],
+      ],
+    )
+  })
+})
+
+describe('firstPage', () => {
   const rows = Array.from({ length: 23 }, (_, i) => ({ label: String(i), known: true }))
 
   it('shows the first page and says whether there are more', () => {
     assert.equal(firstPage(rows, 10).rows.length, 10)
     assert.equal(firstPage(rows, 10).hasMore, true)
     assert.equal(firstPage(rows, 30).hasMore, false)
-  })
-
-  it('counts totals for the summary line', () => {
-    const candidates = toCandidates(MMS_RESPONSE, index)
-    const visible = filterCandidates(candidates)
-    assert.deepEqual(summarize(candidates, visible, 10), { total: 4, unknown: 1, matching: 3, shown: 3 })
   })
 })
 
@@ -279,36 +326,29 @@ describe('with real model responses (data/samples/)', () => {
     assert.ok(top.confidence > 0.4)
   })
 
-  it('English clip near the US: English: USA is listed early among the varieties', () => {
-    const [top] = filterCandidates(load('mms-english.json'), { scope: 'local', country: 'US' })
-    assert.ok(top.languages.slice(0, 3).some((lang) => lang.name === 'English: USA'))
+  it('English clip: the guess plays a variety’s sample, since English itself has none', () => {
+    const [top] = load('mms-english.json')
+    const sample = top.languages.find((lang) => lang.id === top.sampleId)
+    assert.ok(sample?.hasSample)
+    assert.match(sample.name, /^English/)
   })
 
-  it('Tsimshian clip: ranked deep overall, but on the first page near Canada', () => {
-    const all = load('mms-tsimshian.json')
-    const tsi = all.find((c) => c.label === 'tsi')
+  it('native names from the 5fish database: tagged ones, and untagged ones in other scripts', () => {
+    const guess = (label) => toCandidates({ label_kind: 'iso639_3', predictions: [{ label, probability: 1 }] }, languages)[0]
+    assert.equal(guess('rus').native, 'Русский') // tagged "ru"
+    assert.equal(guess('amh').native, 'አማርኛ') // untagged, Ethiopic script
+    assert.equal(guess('eng').native, null) // the same as the English name
+  })
+
+  it('English clip near the US: English: USA comes early among the dialects', () => {
+    const [top] = load('mms-english.json')
+    assert.ok(nearFirst(top.languages, 'US').slice(0, 3).some((lang) => lang.name === 'English: USA'))
+  })
+
+  it('Tsimshian clip: ranked deep overall, and marked as near you in Canada', () => {
+    const tsi = load('mms-tsimshian.json').find((c) => c.label === 'tsi')
     assert.ok(tsi.rank > 40)
-    const nearCanada = filterCandidates(all, { scope: 'local', country: 'CA' })
-    assert.ok(nearCanada.findIndex((c) => c.label === 'tsi') < 10)
-  })
-
-  it('the confidence slider narrows both a confident and a spread-out result down to the top guess', () => {
-    for (const name of ['mms-english.json', 'mms-tsimshian.json']) {
-      const all = load(name)
-      const top = topConfidence(all)
-      const counts = [0, 25, 50, 75, 100].map(
-        (position) => filterCandidates(all, { minConfidence: sliderToConfidence(position, top) }).length,
-      )
-      assert.deepEqual([...counts].sort((a, b) => b - a), counts, `${name}: fewer guesses as the slider moves right`)
-      assert.equal(counts[0], all.filter((c) => c.known).length, `${name}: far left shows everything`)
-      assert.equal(counts[4], 1, `${name}: far right shows only the top guess`)
-    }
-  })
-
-  it('Tsimshian is still shown three-quarters of the way along the slider', () => {
-    const all = load('mms-tsimshian.json')
-    const shown = filterCandidates(all, { minConfidence: sliderToConfidence(75, topConfidence(all)) })
-    assert.ok(shown.some((c) => c.label === 'tsi'))
+    assert.ok(tsi.languages.some((lang) => isInCountry(lang, 'CA')))
   })
 
   it('the LAMP-format illustration still converts', () => {

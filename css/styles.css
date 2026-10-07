@@ -1,14 +1,1384 @@
-.spinner {
-  width: 32px;
+/*
+ * The look from the team's Claude Design prototype.
+ * Every color, font and size the screens share is a token below.
+ */
+
+:root {
+  /* Surfaces */
+  --backdrop: #e4ded2; /* around the app on wide screens */
+  --paper: #f3efe6; /* the app itself */
+  --card: #ffffff;
+  --card-dim: rgba(255, 255, 255, 0.45); /* every guess after the first */
+
+  /* Ink */
+  --ink: #1a1814;
+  --ink-2: #4a453d;
+  --muted: #6b655b;
+  --faint: #9a9285;
+  --quiet: #a8a091;
+
+  /* Lines */
+  --line: #d8d0c1;
+  --line-soft: #ece5d8;
+  --card-border: #e1d9ca;
+  --track: #e3dcce; /* empty part of a match ring */
+  --ring-track: #ddd5c6; /* empty part of the recording ring */
+  --dot: #cfc6b5;
+
+  /* Accents */
+  --accent: #d9481f;
+  --on-accent: #fff7f0;
+  --near: #2f7d4f;
+  --near-bg: rgba(47, 125, 79, 0.12);
+  --go: #2f7d4f; /* a sample not heard yet, on the Sample screen */
+
+  /* Type */
+  --serif: 'Instrument Serif', Georgia, serif;
+  --sans: Geist, system-ui, -apple-system, sans-serif;
+  --mono: 'Geist Mono', ui-monospace, monospace;
+
+  --gutter: 24px;
+  --max-recording: 20s; /* set from maxRecordingSeconds in js/config.js */
+}
+
+/* ------------------------------------------------------------------ base */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+/* Views and parts are hidden with the hidden attribute; keep it winning over display rules. */
+[hidden] {
+  display: none !important;
+}
+
+html {
+  background: var(--backdrop);
+}
+
+body {
+  margin: 0;
+  background: var(--backdrop);
+  color: var(--ink);
+  font-family: var(--sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+}
+
+button:focus-visible,
+.chip:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 3px;
+}
+
+#app {
+  display: flex;
+  flex-direction: column;
+  max-width: 440px;
+  min-height: 100dvh;
+  margin: 0 auto;
+  padding: 14px var(--gutter) 40px;
+  background: var(--paper);
+}
+
+/* On a wide screen, the app sits on the backdrop like a phone-sized card. */
+@media (min-width: 520px) {
+  #app {
+    min-height: calc(100dvh - 48px);
+    margin-block: 24px;
+    border-radius: 32px;
+    box-shadow:
+      0 30px 60px -20px rgba(40, 30, 15, 0.3),
+      0 0 0 1px rgba(0, 0, 0, 0.06);
+  }
+}
+
+.app-bar {
+  display: flex;
+  justify-content: flex-end;
+  align-items: baseline;
+  min-height: 30px;
+}
+
+.step {
+  color: var(--muted);
+  font: 400 11px var(--mono);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.screen {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+
+/* --------------------------------------------------------- shared type */
+
+.display {
+  margin: 36px 0 18px;
+  font: 400 44px/1.02 var(--serif);
+  letter-spacing: -0.015em;
+  text-wrap: balance;
+}
+
+.title {
+  margin: 28px 0 8px;
+  font: 400 38px/1.04 var(--serif);
+  letter-spacing: -0.01em;
+  text-wrap: balance;
+}
+
+.lede {
+  margin: 0 0 22px;
+  color: var(--muted);
+  font: 400 15px/1.45 var(--sans);
+  text-wrap: pretty;
+}
+
+.eyebrow {
+  margin: 0 0 6px;
+  color: var(--muted);
+  font: 400 11px var(--mono);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+h2[tabindex='-1']:focus {
+  outline: none; /* focused only to move screen readers to a new screen */
+}
+
+.tag {
+  flex: none;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: var(--near-bg);
+  color: var(--near);
+  font: 500 11px var(--sans);
+  white-space: nowrap;
+}
+
+/* ------------------------------------------------------------- buttons */
+
+.primary-button,
+.secondary-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 52px;
+  padding: 0 22px;
+  border-radius: 16px;
+  font: 600 15px var(--sans);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.primary-button {
+  border: none;
+  background: var(--ink);
+  color: var(--paper);
+}
+
+.primary-button:hover {
+  background: var(--accent);
+}
+
+.secondary-button {
+  border: 1.5px solid var(--ink);
+  background: transparent;
+  color: var(--ink);
+}
+
+.secondary-button:hover {
+  background: var(--ink);
+  color: var(--paper);
+}
+
+.link-button {
+  align-self: flex-start;
+  padding: 10px 0;
+  border: none;
+  background: none;
+  color: var(--muted);
+  font: 500 15px var(--sans);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.link-button:hover {
+  color: var(--ink);
+}
+
+.chip {
   height: 32px;
-  border: 4px solid #ccc;
-  border-top-color: #333;
+  padding: 0 14px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ink-2);
+  font: 500 13px var(--sans);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.chip[aria-pressed='true'] {
+  border-color: var(--ink);
+  background: var(--ink);
+  color: var(--paper);
+}
+
+.chip:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+.pill-button {
+  height: 30px;
+  padding: 0 12px;
+  border: 1px solid var(--ink);
+  border-radius: 999px;
+  background: var(--ink);
+  color: var(--paper);
+  font: 500 12px var(--sans);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.pill-button:hover {
+  border-color: var(--accent);
+  background: var(--accent);
+}
+
+.icon-button {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: 1px solid var(--line);
   border-radius: 50%;
-  animation: spin 0.9s linear infinite;
+  background: transparent;
+  cursor: pointer;
+}
+
+/* A chevron pointing left. */
+.back-button::before {
+  content: '';
+  width: 9px;
+  height: 9px;
+  margin-left: 4px;
+  border-bottom: 2px solid currentColor;
+  border-left: 2px solid currentColor;
+  transform: rotate(45deg);
+}
+
+/* Arrows drawn with a mask, in the text color. */
+.choose-button::before,
+.choose-language::after,
+.nav-next::after,
+.nav-prev::before {
+  content: '';
+  flex: none;
+  width: 18px;
+  height: 18px;
+  background: currentColor;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12h14'/%3E%3Cpath d='m12 5 7 7-7 7'/%3E%3C/svg%3E")
+    center / contain no-repeat;
+}
+
+.nav-prev::before {
+  transform: scaleX(-1);
+}
+
+/*
+ * Play / stop, drawn in CSS so the sample code only changes attributes.
+ * --icon sizes the icon; each button size sets it.
+ */
+.play-button {
+  --icon: 15px;
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  border: none;
+  border-radius: 50%;
+  background: var(--ink);
+  color: var(--paper);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.play-button::before,
+.play-glyph::before {
+  content: '';
+  width: var(--icon);
+  height: var(--icon);
+  margin-left: calc(var(--icon) / 7); /* a triangle looks centered a little right of center */
+  background: currentColor;
+  clip-path: polygon(25% 17%, 83% 50%, 25% 83%);
+}
+
+.play-button[data-playing='true'] {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+/* Stop: a square. Tapping a playing sample stops it. */
+.play-button[data-playing='true']::before {
+  width: calc(var(--icon) * 0.7);
+  height: calc(var(--icon) * 0.7);
+  margin-left: 0;
+  border-radius: 2px;
+  clip-path: none;
+}
+
+.play-button:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.play-glyph {
+  --icon: 8px;
+  display: inline-grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--ink);
+  color: var(--paper);
+  vertical-align: -3px;
+}
+
+/* --------------------------------------------------------- 1. record */
+
+.mic {
+  display: grid;
+  flex: 1;
+  place-items: center;
+  min-height: 270px;
+}
+
+.mic-stage {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 250px;
+  height: 250px;
+}
+
+/* Two rings pulse out from the button while recording. */
+.mic-stage::before,
+.mic-stage::after {
+  content: '';
+  position: absolute;
+  inset: 40px;
+  border-radius: 50%;
+  background: var(--accent);
+  opacity: 0;
+  pointer-events: none; /* drawn over the button; taps must reach it */
+}
+
+[data-phase='recording'] .mic-stage::before {
+  animation: pulse 1.6s ease-out infinite;
+}
+
+[data-phase='recording'] .mic-stage::after {
+  animation: pulse 1.6s ease-out 0.8s infinite;
+}
+
+.mic-ring {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+  pointer-events: none;
+}
+
+.mic-ring circle {
+  fill: none;
+  stroke-width: 3;
+}
+
+.mic-ring-track {
+  stroke: var(--ring-track);
+}
+
+.mic-ring-fill {
+  stroke: var(--accent);
+  stroke-linecap: round;
+  stroke-dasharray: 100;
+  stroke-dashoffset: 100;
+  opacity: 0;
+}
+
+[data-phase='recording'] .mic-ring-fill {
+  opacity: 1;
+  animation: ring-fill var(--max-recording) linear forwards;
+}
+
+.mic-button {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 170px;
+  height: 170px;
+  border: none;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--on-accent);
+  box-shadow:
+    0 14px 30px -10px rgba(217, 72, 31, 0.6),
+    inset 0 -6px 0 rgba(0, 0, 0, 0.08);
+  cursor: pointer;
+  transition: transform 0.15s;
+}
+
+.mic-button:active {
+  transform: scale(0.96);
+}
+
+.mic-icon {
+  width: 58px;
+  height: 58px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.stop-icon {
+  width: 46px;
+  height: 46px;
+  border-radius: 10px;
+  background: var(--on-accent);
+}
+
+.mic-button[data-recording='true'] .mic-icon,
+.mic-button:not([data-recording='true']) .stop-icon {
+  display: none;
+}
+
+/* Level bars while recording; a dotted line otherwise. */
+.level {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  height: 44px;
+}
+
+.level span {
+  width: 4px;
+  height: calc(10% + var(--level, 0) * 90%);
+  border-radius: 2px;
+  background: var(--ink);
+  transition: height 0.08s linear;
+}
+
+body:not([data-phase='recording']) .level span {
+  display: none;
+}
+
+body:not([data-phase='recording']) .level::before {
+  content: '';
+  width: 220px;
+  border-top: 2px dashed var(--dot);
+}
+
+.record-time {
+  margin: 18px 0 6px;
+  font: 500 26px var(--mono);
+  letter-spacing: -0.02em;
+  text-align: center;
+}
+
+.record-hint {
+  margin: 0;
+  color: var(--muted);
+  font: 400 15px/1.4 var(--sans);
+  text-align: center;
+}
+
+/* --------------------------------------------------------- 2. detect */
+
+.listening {
+  display: grid;
+  flex: 1;
+  place-items: center;
+  min-height: 240px;
+}
+
+.listening-stage {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 220px;
+  height: 220px;
+}
+
+.listening-ring {
+  position: absolute;
+  inset: 50px;
+  border: 1.5px solid var(--ink);
+  border-radius: 50%;
+  opacity: 0;
+  animation: pulse 2.4s ease-out infinite;
+}
+
+.listening-ring:nth-child(2) {
+  animation-delay: 0.8s;
+}
+
+.listening-ring:nth-child(3) {
+  animation-delay: 1.6s;
+}
+
+.listening-disc {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  background: var(--ink);
+}
+
+.listening-disc span {
+  width: 3px;
+  height: 40px;
+  border-radius: 2px;
+  background: var(--paper);
+  animation: wave 0.5s ease-in-out infinite alternate;
+}
+
+.listening-disc span:nth-child(2) { animation-duration: 0.73s; animation-delay: 0.14s; }
+.listening-disc span:nth-child(3) { animation-duration: 0.57s; animation-delay: 0.29s; }
+.listening-disc span:nth-child(4) { animation-duration: 0.82s; animation-delay: 0.07s; }
+.listening-disc span:nth-child(5) { animation-duration: 0.65s; animation-delay: 0.43s; }
+.listening-disc span:nth-child(6) { animation-duration: 0.48s; animation-delay: 0.21s; }
+.listening-disc span:nth-child(7) { animation-duration: 0.77s; animation-delay: 0.36s; }
+.listening-disc span:nth-child(8) { animation-duration: 0.6s; animation-delay: 0.11s; }
+.listening-disc span:nth-child(9) { animation-duration: 0.7s; animation-delay: 0.32s; }
+
+#detect-view .title {
+  margin-top: 0;
+}
+
+.steps {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin: 4px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.steps li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font: 500 15px var(--sans);
+}
+
+.steps li::before {
+  content: '';
+  flex: none;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+}
+
+.steps li[data-state='pending'] {
+  color: var(--quiet);
+}
+
+.steps li[data-state='pending']::before {
+  background: radial-gradient(circle, var(--dot) 3.5px, transparent 4px);
+}
+
+.steps li[data-state='active']::before {
+  width: 18px;
+  height: 18px;
+  margin: 2px;
+  border: 2px solid var(--ring-track);
+  border-top-color: var(--accent);
+  animation: spin 0.8s linear infinite;
+}
+
+.steps li[data-state='done']::before {
+  background: var(--ink)
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23f3efe6' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E")
+    center / 12px no-repeat;
+}
+
+#detect-cancel {
+  margin-top: 26px;
+}
+
+/* --------------------------------------------------------- 3. results */
+
+#results-view .lede {
+  margin-bottom: 16px;
+}
+
+.results-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
+  margin-bottom: 16px;
+}
+
+.status {
+  margin: 0;
+  color: var(--muted);
+  font: 400 13px/1.4 var(--sans);
+}
+
+.status:empty {
+  display: none;
+}
+
+.cards {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0 -8px; /* cards run a little wider than the text above them */
+  padding: 0;
+  list-style: none;
+  counter-reset: card;
+}
+
+.card {
+  border: 1px solid transparent;
+  border-radius: 20px;
+  background: var(--card-dim);
+  overflow: hidden;
+  counter-increment: card;
+  animation: fade-up 0.4s ease-out both;
+  animation-delay: calc(var(--i, 0) * 60ms);
+}
+
+.card:first-child {
+  border-color: var(--card-border);
+  background: var(--card);
+}
+
+.card-main {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 12px 16px 16px;
+}
+
+/* 01, 02, …: the card's place in the list. */
+.card-rank {
+  flex: none;
+  width: 18px;
+  color: var(--faint);
+  font: 500 12px var(--mono);
+}
+
+.card-rank::before {
+  content: counter(card, decimal-leading-zero);
+}
+
+.card-names {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.card-name {
+  font: 400 26px/1.05 var(--serif);
+  overflow-wrap: anywhere;
+}
+
+.card-subname {
+  color: var(--muted);
+  font: 400 12px var(--sans);
+}
+
+/*
+ * Match ring: --pct (0 to 100) fills it; --strength (0 to 1, next to the best
+ * guess) turns it from pale grey to deep blue.
+ */
+.match {
+  --heat: #6f8fbf;
+  --heat-text: #4f6f9f;
+  --heat: oklch(calc(0.7 - 0.2 * var(--strength, 0)) calc(0.01 + 0.16 * var(--strength, 0)) 255);
+  --heat-text: oklch(calc(0.6 - 0.2 * var(--strength, 0)) calc(0.01 + 0.16 * var(--strength, 0)) 255);
+  position: relative;
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+}
+
+.match svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+}
+
+.match circle {
+  fill: none;
+  stroke-width: 4;
+}
+
+.match-track {
+  stroke: var(--track);
+}
+
+.match-fill {
+  stroke: var(--heat);
+  stroke-linecap: round;
+  stroke-dasharray: 100;
+  stroke-dashoffset: calc(100 - var(--pct, 0));
+  animation: match-fill 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  animation-delay: calc(var(--i, 0) * 60ms);
+}
+
+.match-value {
+  position: relative;
+  color: var(--heat-text);
+  font: 500 11.5px var(--mono);
+  letter-spacing: -0.03em;
+}
+
+.card-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 16px 12px 46px;
+  border: none;
+  border-top: 1px solid var(--line-soft);
+  background: transparent;
+  color: var(--ink-2);
+  font: 500 13px var(--sans);
+  text-align: left;
+  cursor: pointer;
+}
+
+.card-toggle-label {
+  flex: 1;
+}
+
+/* Chevron, pointing down when closed. */
+.card-toggle::after {
+  content: '';
+  width: 7px;
+  height: 7px;
+  margin: -4px 4px 0 0;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(45deg);
+  transition: transform 0.25s;
+}
+
+.card-toggle[aria-expanded='true']::after {
+  margin-top: 4px;
+  transform: rotate(-135deg);
+}
+
+.dialects {
+  margin: 0;
+  padding: 0 12px 10px 46px;
+  list-style: none;
+  animation: fade-up 0.25s ease-out both;
+}
+
+.dialect {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+  border-top: 1px solid var(--line-soft);
+}
+
+.dialect-names {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.dialect-name {
+  font: 500 15px var(--sans);
+}
+
+.dialect-region {
+  color: var(--muted);
+  font: 400 12px var(--sans);
+}
+
+.dialect-play {
+  border: 1.5px solid var(--dot);
+  background: transparent;
+  color: var(--ink);
+}
+
+.dialect-play {
+  --icon: 13px;
+}
+
+#show-more {
+  align-self: center;
+  min-height: 44px;
+  margin-top: 16px;
+  border-radius: 999px;
+}
+
+.record-again {
+  display: inline-flex;
+  align-self: center;
+  align-items: center;
+  gap: 8px;
+  margin-top: 18px;
+  padding: 12px;
+  text-decoration: none;
+}
+
+.record-again::before {
+  content: '';
+  width: 16px;
+  height: 16px;
+  background: currentColor;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 12a9 9 0 1 0 3-6.7L3 8'/%3E%3Cpath d='M3 3v5h5'/%3E%3C/svg%3E")
+    center / contain no-repeat;
+}
+
+/* The card's names are a button that opens the guess on the Sample screen. */
+.card-open {
+  padding: 0;
+  border: none;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+}
+
+.card-main {
+  cursor: pointer;
+}
+
+.card-main:hover .card-name {
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 4px;
+}
+
+/* --------------------------------------------------------- 4. sample */
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 44px;
+}
+
+.dots {
+  display: flex;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.dots li {
+  width: 6px;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--line);
+  transition: width 0.25s, background 0.25s;
+}
+
+.dots li[data-seen='true'] {
+  background: var(--faint);
+}
+
+.dots li[data-current='true'] {
+  width: 22px;
+  background: var(--ink);
+}
+
+.sample-body {
+  flex: 1;
+  margin-top: 22px;
+}
+
+.sample-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 4px;
+}
+
+.sample-names {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.sample-name {
+  margin: 0;
+  font: 400 54px/0.95 var(--serif);
+  letter-spacing: -0.015em;
+  overflow-wrap: anywhere;
+}
+
+.sample-subname {
+  color: var(--muted);
+  font: 400 14px var(--sans);
+}
+
+.sample-subname:empty {
+  display: none;
+}
+
+.match-large {
+  width: 64px;
+  height: 64px;
+}
+
+.match-large circle {
+  stroke-width: 4.5;
+}
+
+/* Moves between guesses instead of drawing in once. */
+.match-large .match-fill {
+  animation: none;
+  transition: stroke-dashoffset 0.8s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.match-large .match-value {
+  font-size: 14px;
+}
+
+.sample-card {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  margin-top: 22px;
+  padding: 20px;
+  border-radius: 26px;
+  background: var(--card);
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.04);
+}
+
+.sample-player {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+/* On the Sample screen, green until heard, then grey; orange while playing. */
+.sample-play {
+  border: none;
+  background: var(--go);
+  color: var(--paper);
+}
+
+.sample-play[data-played='true'] {
+  background: var(--quiet);
+}
+
+.sample-play[data-playing='true'] {
+  background: var(--accent);
+}
+
+.large-play {
+  --icon: 22px;
+  width: 64px;
+  height: 64px;
+}
+
+.wave {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 2px;
+  height: 52px;
+}
+
+.wave span {
+  flex: 1;
+  height: var(--height);
+  border-radius: 2px;
+  background: var(--line);
+  transition: background 0.1s;
+}
+
+.wave span.played {
+  background: var(--go);
+}
+
+.choose-language {
+  gap: 10px;
+}
+
+.sample-dialects-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin: 28px 4px 8px;
+  font: 500 15px var(--sans);
+}
+
+.count {
+  color: var(--faint);
+  font: 400 12px var(--mono);
+}
+
+.sample-dialects {
+  margin: 0;
+  padding: 0 12px 0 14px;
+  border-radius: 22px;
+  background: var(--card);
+  list-style: none;
+}
+
+.sample-dialect {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 0;
+}
+
+.sample-dialect + .sample-dialect {
+  border-top: 1px solid var(--line-soft);
+}
+
+.sample-dialect .sample-play {
+  --icon: 13px;
+  width: 44px;
+  height: 44px;
+}
+
+.choose-button {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: 1.5px solid var(--card-border);
+  border-radius: 14px;
+  background: var(--card);
+  color: var(--ink);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.choose-button:hover {
+  border-color: var(--ink);
+  background: var(--ink);
+  color: var(--paper);
+}
+
+.sample-nav {
+  display: flex;
+  gap: 8px;
+  padding-top: 16px;
+}
+
+.sample-nav button {
+  flex: 1;
+  gap: 8px;
+  min-width: 0;
+  min-height: 56px;
+  border-radius: 18px;
+}
+
+.sample-nav button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.sample-nav .secondary-button:disabled:hover {
+  background: transparent;
+  color: var(--ink);
+}
+
+.sample-nav .primary-button:disabled:hover {
+  background: var(--ink);
+}
+
+/* ------------------------------------------------------ 5. resources */
+
+.resources-eyebrow {
+  margin-top: 28px;
+}
+
+.resources-title {
+  margin: 0 0 6px;
+  font-size: 42px;
+  line-height: 1;
+}
+
+.resources {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.resource {
+  overflow: hidden;
+  border: 1px solid var(--card-border);
+  border-radius: 22px;
+  background: var(--card);
+}
+
+.resource-link {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 16px 14px 18px;
+  color: var(--ink);
+  text-decoration: none;
+}
+
+/* An arrow pointing up and out: it opens in a new tab. */
+.resource-link::after {
+  content: '';
+  flex: none;
+  width: 18px;
+  height: 18px;
+  background: var(--faint);
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M7 17 17 7'/%3E%3Cpath d='M7 7h10v10'/%3E%3C/svg%3E")
+    center / contain no-repeat;
+}
+
+.resource-link:hover .resource-title {
+  text-decoration: underline;
+}
+
+.resource-initial {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: var(--accent);
+  color: var(--paper);
+  font: 400 22px/1 var(--serif);
+}
+
+.resource:nth-child(5n + 2) .resource-initial { background: #2f5d50; }
+.resource:nth-child(5n + 3) .resource-initial { background: #3d4f8a; }
+.resource:nth-child(5n + 4) .resource-initial { background: #8a5a1f; }
+.resource:nth-child(5n + 5) .resource-initial { background: var(--ink); }
+
+.resource-text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.resource-title {
+  font: 600 16px var(--sans);
+}
+
+.resource-domain {
+  color: var(--faint);
+  font: 400 12px var(--mono);
+}
+
+.resource-qr {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin: 0 18px 18px;
+  padding: 12px;
+  border-radius: 16px;
+  background: var(--paper);
+}
+
+.qr {
+  flex: none;
+  width: 92px;
+  height: 92px;
+  padding: 4px;
+  border-radius: 10px;
+  background: #fff; /* scanners need light around the code */
+  color: var(--ink);
+}
+
+.qr svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.resource-qr-text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  color: var(--muted);
+  font: 400 13px/1.4 var(--sans);
+}
+
+.resource-qr-text strong {
+  color: var(--ink);
+  font: 600 14px var(--sans);
+}
+
+#resources-restart {
+  margin-top: 22px;
+}
+
+/* ------------------------------------------------------------- error */
+
+#error-view {
+  justify-content: center;
+}
+
+#error-view .primary-button {
+  margin-top: 8px;
+}
+
+/* ----------------------------------------------------------- consent */
+
+#consent-dialog {
+  width: calc(100% - 32px);
+  max-width: 400px;
+  padding: 26px 24px 24px;
+  border: none;
+  border-radius: 26px;
+  background: var(--card);
+  color: var(--ink);
+  box-shadow: 0 30px 60px -20px rgba(40, 30, 15, 0.45);
+}
+
+#consent-dialog::backdrop {
+  background: rgba(26, 24, 20, 0.45);
+  backdrop-filter: blur(2px);
+}
+
+#consent-dialog h2 {
+  margin: 0 0 10px;
+  font: 400 32px/1.05 var(--serif);
+  letter-spacing: -0.01em;
+}
+
+#consent-dialog p {
+  margin: 0 0 22px;
+  color: var(--muted);
+  font: 400 15px/1.45 var(--sans);
+}
+
+.consent-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* ------------------------------------------- test playback (testing only) */
+
+.test-playback {
+  margin-top: 24px;
+  padding: 12px;
+  border: 1px dashed var(--line);
+  border-radius: 16px;
+  color: var(--muted);
+  font: 400 12px var(--sans);
+}
+
+.test-playback p {
+  margin: 0 0 8px;
+}
+
+.test-playback audio {
+  width: 100%;
+}
+
+/* -------------------------------------------------------- animations */
+
+@keyframes pulse {
+  from {
+    transform: scale(0.85);
+    opacity: 0.55;
+  }
+  to {
+    transform: scale(1.7);
+    opacity: 0;
+  }
+}
+
+@keyframes wave {
+  from {
+    transform: scaleY(0.15);
+  }
+  to {
+    transform: scaleY(1);
+  }
 }
 
 @keyframes spin {
   to {
     transform: rotate(360deg);
+  }
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+@keyframes ring-fill {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes match-fill {
+  from {
+    stroke-dashoffset: 100;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    animation-delay: 0s !important;
+    transition: none !important;
+  }
+
+  /* Keep the recording ring meaningful: it shows time left, not decoration. */
+  [data-phase='recording'] .mic-ring-fill {
+    animation-duration: var(--max-recording) !important;
   }
 }

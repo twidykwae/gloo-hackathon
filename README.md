@@ -235,6 +235,10 @@ hiding still works.
   and a kept recording is posted with the same data as `meta`.
 - **How to ask for consent without relying on reading.** The popup text is a
   placeholder.
+- **Choosing a language without hearing its sample (future idea).** When a
+  sample can't play (GRN has none, a 404, or GRN can't be reached, a 502),
+  gray out the "Play sample" button and offer a "This is my language" button
+  next to it. The person can then pick the language by its name alone.
 - **GPS at the site.** Border towns can land in the wrong country (the
   borders are simplified). A migrant's location may not say much about their
   language. The browser's permission prompt is text.

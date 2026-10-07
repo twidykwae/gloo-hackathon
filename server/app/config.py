@@ -4,6 +4,10 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass, field
+from pathlib import Path
+
+# The project folder holding index.html: server/app/config.py -> project root.
+PAGE_DIR = Path(__file__).resolve().parents[2]
 
 
 @dataclass(frozen=True)
@@ -23,6 +27,10 @@ class Settings:
     # doesn't need this; it's for a page served from somewhere else.
     cors_origins: list[str] = field(default_factory=list)
 
+    # Where GRN sample MP3s are kept once downloaded. scripts/fetch_samples.py
+    # (main branch) names files the same way, so it can fill this ahead of time.
+    samples_dir: Path = PAGE_DIR / "data" / "sample-audio"
+
 
 def load_settings() -> Settings:
     env = os.environ.get
@@ -33,4 +41,5 @@ def load_settings() -> Settings:
         lamp_url=env("LID_LAMP_URL", defaults.lamp_url),
         max_audio_seconds=float(env("LID_MAX_AUDIO_SECONDS", defaults.max_audio_seconds)),
         cors_origins=[o.strip() for o in env("LID_CORS_ORIGINS", "").split(",") if o.strip()],
+        samples_dir=Path(env("LID_SAMPLES_DIR", defaults.samples_dir)),
     )

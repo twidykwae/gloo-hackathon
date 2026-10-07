@@ -36,6 +36,8 @@ function toLanguage(lang, index) {
     name: lang.name,
     iso: lang.iso ?? null,
     contentUrl: contentUrl(lang.id),
+    // false when the 5fish database says GRN has no sample recording.
+    hasSample: !lang.noSample,
     countries: lang.countries ?? [],
     // A variety counts as local where its parent language is listed.
     parentCountries: parent?.countries ?? [],

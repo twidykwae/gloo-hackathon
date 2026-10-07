@@ -8,6 +8,12 @@ export const config = {
   // which also serves this page. Returns every guess, best first.
   identifyUrl: '/predict',
 
+  // Where "Play sample" gets a language's recording; {id} is the GRN language
+  // ID. The server in server/ downloads each one once and keeps it. Without
+  // that server (mock mode on a plain file server), use GRN directly:
+  // 'https://media.globalrecordings.net/GOKit_MP3/sample-{id}.mp3'
+  sampleUrl: '/samples/{id}.mp3',
+
   // Where consent answers and kept recordings go.
   consentUrl: null,
   recordingUrl: null,

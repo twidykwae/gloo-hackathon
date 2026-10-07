@@ -65,7 +65,11 @@ const state = {
   shown: config.pageSize,
   location: null, // { code, name } once the "Near me" filter has found it
   playbackUrl: null, // the last recording, when showTestPlayback is on
+  sampleButton: null, // the "Play sample" button whose sample is playing
 }
+
+// One player for language samples, so only one plays at a time.
+const samplePlayer = new Audio()
 
 // ------------------------------------------------------------------ phases
 
@@ -98,6 +102,7 @@ function showError(message) {
 }
 
 function reset() {
+  stopSample()
   clearTestPlayback()
   state.recorder?.cancel()
   state.recorder = null
@@ -227,6 +232,7 @@ function renderResults() {
   const country = state.location?.code ?? null
   const visible = visibleCandidates()
   const page = firstPage(visible, state.shown)
+  stopSample() // its button is about to be replaced
 
   // Guesses whose "varieties" list was open stay open after rebuilding.
   const open = new Set(
@@ -266,6 +272,7 @@ function renderRow(candidate, country) {
 
   if (single) {
     row.dataset.id = String(only.id)
+    if (!only.hasSample) markSampleMissing(part('play'), 'No sample')
     part('varieties').remove()
   } else {
     part('play').remove()
@@ -280,6 +287,7 @@ function renderLanguage(language, country) {
   item.dataset.id = String(language.id)
   item.querySelector('.language-name').textContent = language.name
   item.querySelector('.language-local').hidden = !isInCountry(language, country)
+  if (!language.hasSample) markSampleMissing(item.querySelector('.language-play'), 'No sample')
   return item
 }
 
@@ -323,6 +331,53 @@ el.minConfidence.addEventListener('input', () => {
 })
 el.minConfidence.addEventListener('change', renderResults)
 el.filters.addEventListener('submit', (e) => e.preventDefault())
+
+// ------------------------------------------------------------ sample playback
+
+function markSampleMissing(button, text) {
+  button.disabled = true
+  button.dataset.sample = 'missing'
+  button.textContent = text
+}
+
+function setSampleButton(button, playing) {
+  button.dataset.playing = String(playing)
+  button.textContent = playing ? 'Stop sample' : 'Play sample'
+}
+
+function stopSample() {
+  const button = state.sampleButton
+  state.sampleButton = null
+  samplePlayer.pause()
+  samplePlayer.removeAttribute('src')
+  if (button) setSampleButton(button, false)
+}
+
+function playSample(button) {
+  const wasPlaying = state.sampleButton === button
+  stopSample()
+  if (wasPlaying) return // a second tap stops it
+  const id = button.closest('[data-id]').dataset.id
+  state.sampleButton = button
+  setSampleButton(button, true)
+  samplePlayer.src = config.sampleUrl.replace('{id}', id)
+  // A failed load also fires the player's error event, handled below.
+  samplePlayer.play().catch(() => {})
+}
+
+el.list.addEventListener('click', (e) => {
+  const button = e.target.closest('.result-play, .language-play')
+  if (button && !button.disabled) playSample(button)
+})
+samplePlayer.addEventListener('ended', stopSample)
+// No sample on GRN (404) or GRN unreachable (502): the server answers with an error, not audio.
+samplePlayer.addEventListener('error', () => {
+  const button = state.sampleButton
+  if (!button || !samplePlayer.getAttribute('src')) return // from stopSample clearing the source
+  state.sampleButton = null
+  markSampleMissing(button, 'Sample unavailable')
+  console.warn('Could not play the sample', samplePlayer.src, samplePlayer.error)
+})
 
 el.showMore.addEventListener('click', () => {
   state.shown += config.pageSize

@@ -7,6 +7,7 @@ then open http://localhost:8080.
     GET  /             the page (index.html, css/, js/, data/ from the project folder)
     GET  /health       which model is loaded
     POST /predict      a recording in, the model's ranked guesses out
+    GET  /samples/{id}.mp3   a GRN language's sample recording, downloaded once then cached
 """
 
 from __future__ import annotations
@@ -23,6 +24,7 @@ from fastapi.staticfiles import StaticFiles
 from .audio import TARGET_RATE, AudioError, read_wav
 from .config import Settings, load_settings
 from .identifiers import Identifier, IdentifierError, make_identifier
+from .samples import SampleNotFound, SampleUnavailable, get_sample
 
 logger = logging.getLogger("language_id")
 
@@ -75,6 +77,18 @@ def create_app(settings: Settings | None = None, identifier: Identifier | None =
             "duration": round(samples.size / TARGET_RATE, 2),
             "predictions": [{"label": s.label, "probability": s.score} for s in label_scores],
         }
+
+    @app.get("/samples/{grn_id}.mp3")
+    def sample(grn_id: int) -> FileResponse:
+        """A GRN language's sample recording, from the local cache or GRN."""
+        try:
+            path = get_sample(grn_id, settings.samples_dir)
+        except SampleNotFound as e:
+            raise HTTPException(404, str(e)) from e
+        except SampleUnavailable as e:
+            logger.warning("Sample download failed: %s", e)
+            raise HTTPException(502, str(e)) from e
+        return FileResponse(path, media_type="audio/mpeg")
 
     @app.middleware("http")
     async def always_check_for_newer_files(request, call_next):

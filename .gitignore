@@ -4,6 +4,5 @@ __pycache__/
 .pytest_cache/
 # The 5fish database (large, and not ours to publish); see tools/build_data.py.
 tools/database_5fish.db
-data/samples
 # GRN sample MP3s, downloaded on demand by the server (server/app/samples.py).
 data/sample-audio/

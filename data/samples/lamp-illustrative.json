@@ -1,0 +1,144 @@
+{
+  "_note": "ILLUSTRATIVE ONLY. Shaped exactly like LAMP's serve.py /predict response (lid_finetune/scripts/model/serve.py, top_k=23). The IDs are real GRN language IDs from LAMP's label map; the probabilities are made up, because LAMP's weights aren't available yet. Replace with a real response once the model runs.",
+  "duration": 7.3,
+  "predictions": [
+    {
+      "id": 14,
+      "probability": 0.412,
+      "iso": "ctu",
+      "url": "https://globalrecordings.net/en/language/14"
+    },
+    {
+      "id": 36,
+      "probability": 0.187,
+      "iso": "mam",
+      "url": "https://globalrecordings.net/en/language/36"
+    },
+    {
+      "id": 58,
+      "probability": 0.094,
+      "iso": "tzh",
+      "url": "https://globalrecordings.net/en/language/58"
+    },
+    {
+      "id": 60,
+      "probability": 0.061,
+      "iso": "tzo",
+      "url": "https://globalrecordings.net/en/language/60"
+    },
+    {
+      "id": 394,
+      "probability": 0.048,
+      "iso": "cac",
+      "url": "https://globalrecordings.net/en/language/394"
+    },
+    {
+      "id": 52,
+      "probability": 0.037,
+      "iso": "spa",
+      "url": "https://globalrecordings.net/en/language/52"
+    },
+    {
+      "id": 161,
+      "probability": 0.029,
+      "iso": "toj",
+      "url": "https://globalrecordings.net/en/language/161"
+    },
+    {
+      "id": 448,
+      "probability": 0.022,
+      "iso": "acr",
+      "url": "https://globalrecordings.net/en/language/448"
+    },
+    {
+      "id": 0,
+      "probability": 0.018,
+      "iso": "zxx",
+      "url": "https://globalrecordings.net/en/language/0"
+    },
+    {
+      "id": 859,
+      "probability": 0.014,
+      "iso": "tzh",
+      "url": "https://globalrecordings.net/en/language/859"
+    },
+    {
+      "id": 542,
+      "probability": 0.011,
+      "iso": "jac",
+      "url": "https://globalrecordings.net/en/language/542"
+    },
+    {
+      "id": 6028,
+      "probability": 0.009,
+      "iso": "ngu",
+      "url": "https://globalrecordings.net/en/language/6028"
+    },
+    {
+      "id": 862,
+      "probability": 0.007,
+      "iso": "tzh",
+      "url": "https://globalrecordings.net/en/language/862"
+    },
+    {
+      "id": 2098,
+      "probability": 0.006,
+      "iso": "acr",
+      "url": "https://globalrecordings.net/en/language/2098"
+    },
+    {
+      "id": 4808,
+      "probability": 0.005,
+      "iso": "zab",
+      "url": "https://globalrecordings.net/en/language/4808"
+    },
+    {
+      "id": 1204,
+      "probability": 0.004,
+      "iso": "tzo",
+      "url": "https://globalrecordings.net/en/language/1204"
+    },
+    {
+      "id": 13,
+      "probability": 0.0035,
+      "iso": "yue",
+      "url": "https://globalrecordings.net/en/language/13"
+    },
+    {
+      "id": 3471,
+      "probability": 0.003,
+      "iso": "quc",
+      "url": "https://globalrecordings.net/en/language/3471"
+    },
+    {
+      "id": 25,
+      "probability": 0.0025,
+      "iso": "eng",
+      "url": "https://globalrecordings.net/en/language/25"
+    },
+    {
+      "id": 1796,
+      "probability": 0.002,
+      "iso": "tzh",
+      "url": "https://globalrecordings.net/en/language/1796"
+    },
+    {
+      "id": 23,
+      "probability": 0.0017,
+      "iso": "fra",
+      "url": "https://globalrecordings.net/en/language/23"
+    },
+    {
+      "id": 3473,
+      "probability": 0.0014,
+      "iso": "quc",
+      "url": "https://globalrecordings.net/en/language/3473"
+    },
+    {
+      "id": 24,
+      "probability": 0.0011,
+      "iso": "deu",
+      "url": "https://globalrecordings.net/en/language/24"
+    }
+  ]
+}

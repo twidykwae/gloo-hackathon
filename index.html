@@ -15,9 +15,20 @@
   </head>
   <body data-phase="idle">
     <main id="app">
-      <header id="app-bar" class="app-bar">
-        <span id="step" class="step"></span>
-      </header>
+      <!--
+        Consent: a banner from when recording stops until it's answered. It
+        doesn't block anything; no answer means the recording isn't kept.
+      -->
+      <section id="consent-banner" class="consent-banner" aria-labelledby="consent-heading" hidden>
+        <div class="consent-text">
+          <h2 id="consent-heading" class="consent-title">May we keep your recording?</h2>
+          <p class="consent-body">It helps our model learn languages we have little audio of. Your answer doesn't change your results.</p>
+        </div>
+        <div class="consent-actions">
+          <button type="button" id="consent-yes" class="primary-button">Yes, keep it</button>
+          <button type="button" id="consent-no" class="secondary-button">No thanks</button>
+        </div>
+      </section>
 
       <!-- 1. Record -->
       <section id="record-view" class="screen" aria-labelledby="record-heading">
@@ -68,7 +79,7 @@
         <p id="record-hint" class="record-hint" aria-live="polite"></p>
       </section>
 
-      <!-- 2. Detect: behind the consent popup, then while the model finishes. -->
+      <!-- 2. Detect: while the model works. -->
       <section id="detect-view" class="screen" aria-labelledby="detect-heading" hidden>
         <div class="listening" aria-hidden="true">
           <div class="listening-stage">
@@ -254,10 +265,8 @@
         </div>
         <h2 id="dialect-heading" class="title dialect-title">Tell us about your dialect</h2>
         <p class="lede">This helps us recognize it for the next person.</p>
-        <!-- Only after "No, don't keep it": there's no recording to go with what they type. -->
-        <p id="dialect-note" class="dialect-note" hidden>
-          You asked us not to keep your recording, so we'll save only what you type here.
-        </p>
+        <!-- Unless they said yes to keeping the recording: whether it goes with what they type. -->
+        <p id="dialect-note" class="dialect-note" hidden></p>
         <form id="dialect-form" class="dialect-form" novalidate>
           <div class="field">
             <label for="dialect-parent">Parent language</label>
@@ -297,19 +306,6 @@
       </section>
 
     </main>
-
-    <!-- Consent: shown as soon as recording stops, while the model works. -->
-    <dialog id="consent-dialog" aria-labelledby="consent-heading">
-      <h2 id="consent-heading">May we keep your recording?</h2>
-      <p>
-        We would use it to improve our language model, especially for languages
-        we have little audio of. Your answer doesn't change your results.
-      </p>
-      <div class="consent-actions">
-        <button type="button" id="consent-yes" class="primary-button" value="yes">Yes, keep it</button>
-        <button type="button" id="consent-no" class="secondary-button" value="no">No, don't keep it</button>
-      </div>
-    </dialog>
 
     <!--
       One guess. Play buttons carry the GRN language ID to play in data-id;

@@ -100,20 +100,6 @@ button:focus-visible,
   }
 }
 
-.app-bar {
-  display: flex;
-  justify-content: flex-end;
-  align-items: baseline;
-  min-height: 30px;
-}
-
-.step {
-  color: var(--muted);
-  font: 400 11px var(--mono);
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-}
-
 .screen {
   display: flex;
   flex: 1;
@@ -1831,38 +1817,81 @@ body:not([data-phase='recording']) .level::before {
 
 /* ----------------------------------------------------------- consent */
 
-#consent-dialog {
-  width: calc(100% - 32px);
-  max-width: 400px;
-  padding: 26px 24px 24px;
-  border: none;
-  border-radius: 26px;
+/*
+ * A banner at the top of the app: it stays in view while scrolling, but takes
+ * its own space, so it never covers a button. On a phone the buttons wrap
+ * under the text.
+ */
+.consent-banner {
+  position: sticky;
+  top: 10px;
+  z-index: 10;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 14px;
+  margin: 0 -8px 12px;
+  padding: 12px 12px 12px 16px;
+  border: 1px solid var(--card-border);
+  border-radius: 18px;
   background: var(--card);
-  color: var(--ink);
-  box-shadow: 0 30px 60px -20px rgba(40, 30, 15, 0.45);
+  box-shadow: 0 10px 24px -14px rgba(40, 30, 15, 0.35);
+  animation: slide-down 0.3s ease-out both;
 }
 
-#consent-dialog::backdrop {
-  background: rgba(26, 24, 20, 0.45);
-  backdrop-filter: blur(2px);
+/*
+ * Answered: it fades up while folding its height away, so the page below
+ * slides up instead of jumping. --banner-height is its height when tapped.
+ */
+.consent-banner.leaving {
+  overflow: hidden;
+  pointer-events: none;
+  animation: banner-out 0.2s ease-in forwards;
 }
 
-#consent-dialog h2 {
-  margin: 0 0 10px;
-  font: 400 32px/1.05 var(--serif);
-  letter-spacing: -0.01em;
+@keyframes banner-out {
+  from {
+    max-height: var(--banner-height);
+  }
+  to {
+    max-height: 0;
+    margin-bottom: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    border-width: 0;
+    opacity: 0;
+    transform: translateY(-8px);
+  }
 }
 
-#consent-dialog p {
-  margin: 0 0 22px;
+.consent-text {
+  flex: 1 1 200px;
+  min-width: 0;
+}
+
+.consent-title {
+  margin: 0;
+  font: 600 14px/1.3 var(--sans);
+}
+
+.consent-body {
+  margin: 2px 0 0;
   color: var(--muted);
-  font: 400 15px/1.45 var(--sans);
+  font: 400 12.5px/1.4 var(--sans);
 }
 
 .consent-actions {
   display: flex;
-  flex-direction: column;
-  gap: 8px;
+  flex: none;
+  gap: 6px;
+  margin-left: auto;
+}
+
+.consent-actions button {
+  min-height: 40px;
+  padding: 0 14px;
+  border-radius: 12px;
+  font-size: 14px;
 }
 
 /* -------------------------------------------------------- animations */
@@ -1884,6 +1913,13 @@ body:not([data-phase='recording']) .level::before {
   }
   to {
     transform: scaleY(1);
+  }
+}
+
+@keyframes slide-down {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
   }
 }
 

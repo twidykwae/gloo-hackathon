@@ -94,7 +94,7 @@ cd server
 
 | File | Job |
 | --- | --- |
-| `index.html` | All the markup: the Record, Detect, Rankings, Sample, Resources and error screens, the consent popup, and `<template>`s for the repeated parts |
+| `index.html` | All the markup: the Record, Detect, Rankings, Sample, Resources and error screens, the consent banner, and `<template>`s for the repeated parts |
 | `css/styles.css` | The look, from the team's Claude Design prototype: colors, fonts and sizes as tokens at the top, then one section per screen. See "Styling hooks" |
 | `js/main.js` | Wires everything together and runs the flow |
 | `js/recorder.js` | Microphone recording (`MediaRecorder`), and the microphone level for the bars |
@@ -131,7 +131,7 @@ cd server
 The screens follow the team's Claude Design prototype.
 
 ```
-Record ──▶ recording ──tap, or 20 s──▶ Detect + consent popup ──▶ Sample (best match) ──"This is my language"──▶ Resources
+Record ──▶ recording ──tap, or 20 s──▶ Detect ─────────────────▶ Sample (best match) ──"This is my language"──▶ Resources
                                             │ Cancel                 ▲   │ Show all rankings
                                             ▼                        │   ▼
                                           Record                     └─ Rankings
@@ -149,13 +149,18 @@ Record ──▶ recording ──tap, or 20 s──▶ Detect + consent popup �
 - **Detect.** The recording goes to the model as soon as recording stops. The
   screen shows the real progress: *Preparing your recording* (converting it to
   WAV), *Identifying the language* (the model), *Finding it in our catalog*
-  (matching to GRN languages). The consent popup sits on top of it, so the
-  model often finishes before the person answers. **Cancel** stops the
-  request and goes back to Record.
-- **Consent.** The answer is always saved (`backend.saveConsent`). The
-  recording is only kept (`backend.saveRecording`) after a "yes". Identifying
-  the language happens either way. An answer is required: Escape doesn't
-  close the popup.
+  (matching to GRN languages). **Cancel** stops the request and goes back to
+  Record.
+- **Consent.** A banner at the top of the app, "May we keep your
+  recording?", from when recording stops until it's answered. It doesn't
+  block anything: results come as soon as the model is done, and the banner
+  stays in view (pinned to the top as the page scrolls, never covering a
+  button) on every screen until "Yes, keep it" or "No thanks". The answer is
+  saved when given (`backend.saveConsent`), and the recording is kept
+  (`backend.saveRecording`) only after a "Yes", which can come late, even
+  after choosing a language: it has the same `sessionId` as the choice. No
+  answer means the recording isn't kept. Identifying the language happens
+  either way. A new recording asks again.
 - **Sample.** Results open on the best match, one guess at a time: its name,
   match ring and sample. A guess with one language has a big player (bars
   fill in as it plays) and a "This is my language" button. A guess with
@@ -183,9 +188,10 @@ Record ──▶ recording ──tap, or 20 s──▶ Detect + consent popup �
   still take anything typed. Submitting always saves a report
   (`backend.saveNewDialect`, see "Still to decide"). Then it opens Resources
   for the parent language ("Thank you! The closest we have"), or, if the
-  parent isn't in the catalog either, a thank-you screen. After "No, don't
-  keep it", the form says only what's typed will be saved: there's no
-  recording to go with it, so the report is a lead for the team.
+  parent isn't in the catalog either, a thank-you screen. Unless they've
+  said "Yes, keep it", a note on the form says so: after "No thanks", only
+  what's typed is saved, so the report is a lead for the team; with no answer
+  yet, it points to the banner to include the recording.
 - **Choosing** a language or dialect saves the choice (`backend.saveChoice`,
   see "Still to decide") and opens Resources.
 - **Resources.** Links for the chosen language, from `resources` in
@@ -196,7 +202,7 @@ Record ──▶ recording ──tap, or 20 s──▶ Detect + consent popup �
 - **Errors** (no microphone permission, server down) get their own screen with
   "Try again".
 
-Body has `data-phase`: `idle`, `recording`, `consent`, `waiting`, `sample`,
+Body has `data-phase`: `idle`, `recording`, `waiting`, `sample`,
 `checkin`, `results`, `resources`, `dialect`, `thanks` or `error`.
 
 ## Model output and how it's converted
@@ -303,13 +309,12 @@ attributes and a few custom properties, listed here.
 
 | Hook | Meaning |
 | --- | --- |
-| `body[data-phase]` | `idle`, `recording`, `consent`, `waiting`, `sample`, `checkin`, `results`, `resources`, `dialect`, `thanks` or `error` |
+| `body[data-phase]` | `idle`, `recording`, `waiting`, `sample`, `checkin`, `results`, `resources`, `dialect`, `thanks` or `error` |
 | `.checkin-actions .choice-button` | The check-in's three choices: a `.choice-icon` (`.arrow-icon`, `.dot-icon` or `.plus-icon`), `.choice-title` and `.choice-detail`. `.choice-main` is "Keep going", filled in |
 | `.results-end .outline-button` | The two buttons at the bottom of Rankings, each with an `.outline-icon` (`.dot-icon` or `.plus-icon`) |
 | `#dialect-form` | The new-dialect form: `.field`s with a `label` and an `input`. `#dialect-note` shows after a "No" to keeping the recording |
 | `.suggest > ul.suggestions` | A suggestion list under a box: `li.suggestion` with `.suggestion-label` and an optional `.suggestion-detail`; `[aria-selected="true"]` is the one picked with the arrow keys |
 | `#resources-eyebrow` | "Your choice:", centered in the toolbar row with the back button, or "Thank you! The closest we have" after a new dialect |
-| `#app-bar`, `#step` | "Step 1 of 3" and so on. Hidden on the Sample, Resources and error screens, which have their own `.toolbar` |
 | `#record-button[data-recording="true"]` | Recording in progress; shows `.stop-icon` instead of `.mic-icon` |
 | `.mic-ring-fill` | The ring that fills while recording, over `--max-recording` (set on `:root` from `maxRecordingSeconds`) |
 | `#record-level > span` | One bar each; `--level` is 0 to 1 |
@@ -326,7 +331,7 @@ attributes and a few custom properties, listed here.
 | `#resources-list > li.resource` | One link: `.qr` (an inline SVG drawn in `currentColor`) in a white box, and beside it `.resource-action`: `.resource-logo` above `.resource-button` |
 | `.play-button[data-playing="true"]` | Its sample is playing; the CSS draws a square stop icon instead of the play triangle. `--icon` on a button sets the icon size |
 | `.play-button[data-sample="missing"]` | No sample to play: disabled, labelled "No sample" or "Sample unavailable" |
-| `#consent-dialog` | A native `<dialog>`; its backdrop is `#consent-dialog::backdrop` |
+| `#consent-banner` | The consent banner: `.consent-title`, `.consent-body` and `.consent-actions`. `position: sticky` at the top of `#app` |
 
 Views are hidden with the HTML `hidden` attribute; `[hidden]` is forced to
 `display: none` so it wins over `display: flex` rules.
@@ -361,8 +366,11 @@ Views are hidden with the HTML `hidden` attribute; `[hidden]` is forced to
   "Minas"), so someone should check them before they're used for training.
 - **More resources.** The Resources screen only has the 5fish link so far.
   Add links to `resources` in `js/config.js`.
-- **How to ask for consent without relying on reading.** The popup text is a
-  placeholder.
+- **How to ask for consent without relying on reading.** The banner's text
+  is a placeholder.
+- **Unanswered consent.** No answer counts as no, so recordings from people
+  who ignore the banner aren't kept. If too few people answer, the banner
+  could come back once more at the end, for example on Resources.
 - **Fonts without internet.** The fonts (Geist, Geist Mono, Instrument
   Serif) load from Google Fonts. Offline, the page falls back to system
   fonts and still works. For a field laptop, copy the font files into the

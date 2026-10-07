@@ -40,8 +40,6 @@ function showNames(nameEl, subnameEl, language, ownLang) {
 
 const $ = (id) => document.getElementById(id)
 const el = {
-  appBar: $('app-bar'),
-  step: $('step'),
   recordView: $('record-view'),
   recordButton: $('record-button'),
   recordTime: $('record-time'),
@@ -120,7 +118,7 @@ const el = {
   errorView: $('error-view'),
   errorMessage: $('error-message'),
   errorRetry: $('error-retry'),
-  consentDialog: $('consent-dialog'),
+  consentBanner: $('consent-banner'),
   consentYes: $('consent-yes'),
   consentNo: $('consent-no'),
   cardTemplate: $('card-template'),
@@ -175,7 +173,6 @@ document.documentElement.style.setProperty('--max-recording', `${config.maxRecor
 const VIEW_FOR_PHASE = {
   idle: 'recordView',
   recording: 'recordView',
-  consent: 'detectView', // behind the consent popup
   waiting: 'detectView',
   sample: 'sampleView',
   checkin: 'checkinView',
@@ -184,21 +181,6 @@ const VIEW_FOR_PHASE = {
   dialect: 'dialectView',
   thanks: 'thanksView',
   error: 'errorView',
-}
-
-// The other screens have their own toolbar instead, or need none.
-const STEP_FOR_PHASE = {
-  idle: 'Step 1 of 3',
-  recording: 'Step 1 of 3',
-  consent: 'Step 2 of 3',
-  waiting: 'Step 2 of 3',
-  results: 'Step 3 of 3',
-  sample: '',
-  checkin: '',
-  resources: '',
-  dialect: '',
-  thanks: '',
-  error: '',
 }
 
 const RECORD_HINTS = {
@@ -213,8 +195,6 @@ function setPhase(phase) {
   for (const view of new Set(Object.values(VIEW_FOR_PHASE))) {
     el[view].hidden = VIEW_FOR_PHASE[phase] !== view
   }
-  el.step.textContent = STEP_FOR_PHASE[phase]
-  el.appBar.hidden = !STEP_FOR_PHASE[phase]
   const recording = phase === 'recording'
   el.recordButton.dataset.recording = String(recording)
   el.recordButton.setAttribute('aria-label', recording ? 'Stop recording' : 'Start recording')
@@ -238,6 +218,7 @@ function showError(message) {
 
 function reset() {
   stopSample()
+  hideConsentBanner({ animate: false }) // a new recording asks again
   state.recorder?.cancel()
   state.recorder = null
   state.session?.controller.abort()
@@ -298,7 +279,7 @@ async function beginRecording() {
 
 async function finishRecording() {
   if (state.phase !== 'recording') return // the button and the time limit can both fire
-  setPhase('consent')
+  setPhase('waiting')
   setDetectStep('prepare')
   const recorder = state.recorder
   state.recorder = null
@@ -326,7 +307,7 @@ async function finishRecording() {
   const onStage = (stage) => {
     if (state.session === session) setDetectStep(stage)
   }
-  // Send for identification right away; the consent question covers the wait.
+  // Send for identification right away.
   session.results = Promise.all([
     backend.identify(recording, { signal: session.controller.signal, onStage }),
     languagesReady,
@@ -336,7 +317,8 @@ async function finishRecording() {
     return toCandidates(raw, languages)
   })
   session.results.catch(() => {}) // reported in showResultsWhenReady
-  el.consentDialog.showModal()
+  showConsentBanner() // until answered; results don't wait for it
+  showResultsWhenReady(session)
 }
 
 el.recordButton.addEventListener('click', () => {
@@ -367,9 +349,39 @@ el.detectCancel.addEventListener('click', reset)
 
 // ----------------------------------------------------------------- consent
 
+function showConsentBanner() {
+  el.consentBanner.classList.remove('leaving')
+  el.consentBanner.hidden = false
+}
+
+/** Animates the banner away (see .leaving in styles.css), or just hides it. */
+function hideConsentBanner({ animate = true } = {}) {
+  const banner = el.consentBanner
+  if (!animate) {
+    banner.classList.remove('leaving')
+    banner.hidden = true
+    return
+  }
+  if (banner.hidden || banner.classList.contains('leaving')) return
+  banner.style.setProperty('--banner-height', `${banner.offsetHeight}px`)
+  banner.classList.add('leaving')
+  const done = () => {
+    if (!banner.classList.contains('leaving')) return // shown again meanwhile
+    banner.classList.remove('leaving')
+    banner.hidden = true
+  }
+  banner.addEventListener('animationend', done, { once: true })
+  setTimeout(done, 300) // in case the animation doesn't run (a hidden tab)
+}
+
+/**
+ * The banner's answer, whenever it comes: during Detect or after choosing a
+ * language. With no answer, the recording isn't kept.
+ */
 function answerConsent(consented) {
   const session = state.session
-  el.consentDialog.close()
+  hideConsentBanner()
+  if (!session || session.consent !== null) return
   session.consent = consented
 
   const answer = {
@@ -388,13 +400,11 @@ function answerConsent(consented) {
   } else {
     session.recording = null // not kept
   }
-  showResultsWhenReady(session)
+  updateDialectNote()
 }
 
 el.consentYes.addEventListener('click', () => answerConsent(true))
 el.consentNo.addEventListener('click', () => answerConsent(false))
-// An answer is required: Escape doesn't close the popup.
-el.consentDialog.addEventListener('cancel', (e) => e.preventDefault())
 
 // ----------------------------------------------------------------- results
 
@@ -1056,7 +1066,7 @@ function showDialectForm({ from = state.dialectFrom } = {}) {
     'aria-label',
     from === 'sample' ? `Back to ${state.candidates[state.sampleIndex] ? shownName(state.candidates[state.sampleIndex]) : 'the last match'}` : 'Back to all rankings',
   )
-  el.dialectNote.hidden = state.session?.consent !== false
+  updateDialectNote()
   // The country "Near me" found, if it was used.
   if (!el.dialectCountry.value && state.location?.code) {
     const here = countries.find((country) => country.code === state.location.code)
@@ -1069,6 +1079,16 @@ function showDialectForm({ from = state.dialectFrom } = {}) {
   setPhase('dialect')
   window.scrollTo(0, 0)
   focusHeading(el.dialectHeading)
+}
+
+/** Whether a recording goes with what they type: not after a "No", and not yet without an answer. */
+function updateDialectNote() {
+  const consent = state.session?.consent ?? null
+  el.dialectNote.hidden = consent === true
+  el.dialectNote.textContent =
+    consent === false
+      ? "You asked us not to keep your recording, so we'll save only what you type here."
+      : "We'll save what you type here. To include your recording too, answer “Yes, keep it” above."
 }
 
 function clearDialectForm() {

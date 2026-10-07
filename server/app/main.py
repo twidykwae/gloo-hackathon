@@ -8,6 +8,7 @@ then open http://localhost:8080.
     GET  /health       which model is loaded
     POST /predict      a recording in, the model's ranked guesses out
     GET  /samples/{id}.mp3   a GRN language's sample recording, downloaded once then cached
+    GET  /bible/{id}   a GRN language's Bible on YouVersion: name, copyright, bible.com link
 """
 
 from __future__ import annotations
@@ -22,6 +23,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from .audio import TARGET_RATE, AudioError, read_wav
+from .bibles import BibleLookupError, UnknownLanguage, YouVersion, load_grn_languages
 from .config import Settings, load_settings
 from .identifiers import Identifier, IdentifierError, make_identifier
 from .samples import SampleNotFound, SampleUnavailable, get_sample
@@ -35,9 +37,13 @@ ALL_LABELS = 10_000
 PAGE_DIR = Path(__file__).resolve().parents[2]
 
 
-def create_app(settings: Settings | None = None, identifier: Identifier | None = None) -> FastAPI:
+def create_app(
+    settings: Settings | None = None, identifier: Identifier | None = None, youversion: YouVersion | None = None
+) -> FastAPI:
     settings = settings or load_settings()
     identifier = identifier or make_identifier(settings.identifier, settings.stub_labels, settings.lamp_url)
+    if youversion is None and settings.youversion_app_key:
+        youversion = YouVersion(settings.youversion_app_key, load_grn_languages(PAGE_DIR / "data" / "languages.json"))
 
     app = FastAPI(title="Language ID", version="0.2.0")
     if settings.cors_origins:
@@ -89,6 +95,21 @@ def create_app(settings: Settings | None = None, identifier: Identifier | None =
             logger.warning("Sample download failed: %s", e)
             raise HTTPException(502, str(e)) from e
         return FileResponse(path, media_type="audio/mpeg")
+
+    @app.get("/bible/{grn_id}")
+    def bible(grn_id: int) -> dict:
+        """The language's Bible on YouVersion, or "bible": null if it has none.
+        "can_show_text" says whether this app is licensed to show its text;
+        the bible.com link works either way."""
+        if youversion is None:
+            raise HTTPException(503, "YouVersion isn't set up: set YVP_APP_KEY")
+        try:
+            return youversion.bible_for(grn_id)
+        except UnknownLanguage as e:
+            raise HTTPException(404, str(e)) from e
+        except BibleLookupError as e:
+            logger.warning("Bible lookup failed: %s", e)
+            raise HTTPException(502, str(e)) from e
 
     @app.middleware("http")
     async def always_check_for_newer_files(request, call_next):

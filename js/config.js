@@ -24,6 +24,10 @@ export const config = {
   // Links on the last screen, for the chosen language. {id} is its GRN
   // language ID and {name} its name. Add more here.
   resources: [{ title: 'Listen to recordings in {name}', url: 'https://5fish.mobi/{id}' }],
+  // The language's Bible on YouVersion (the server's GET /bible/{id}), added
+  // after the links above when there is one. null turns it off, for example
+  // in mock mode without the server.
+  bibleUrl: '/bible/{id}',
 
   // For testing: a player for the last recording, below the results. Turn this
   // off before real users see the page.

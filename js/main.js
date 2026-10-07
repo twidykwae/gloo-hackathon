@@ -1,6 +1,7 @@
 import { createBackend } from './backend.js'
 import { config } from './config.js'
 import { detectCountry } from './location.js'
+import { bibleResource } from './bible.js'
 import { qrSvg } from './qr.js'
 import { startRecording } from './recorder.js'
 import {
@@ -37,7 +38,6 @@ const el = {
   showMore: $('show-more'),
   recordAgain: $('record-again'),
   sampleView: $('sample-view'),
-  sampleBack: $('sample-back'),
   sampleDots: $('sample-dots'),
   sampleAll: $('sample-all'),
   samplePosition: $('sample-position'),
@@ -57,6 +57,7 @@ const el = {
   sampleNextMatch: $('sample-next-match'),
   sampleNextName: $('sample-next-name'),
   resourcesView: $('resources-view'),
+  resourcesBack: $('resources-back'),
   resourcesAll: $('resources-all'),
   resourcesHeading: $('resources-heading'),
   resourcesSubname: $('resources-subname'),
@@ -624,7 +625,6 @@ function readySampleButton(button, id) {
   button.dataset.played = String(state.played.has(String(id)))
 }
 
-el.sampleBack.addEventListener('click', showRankings)
 el.sampleAll.addEventListener('click', showRankings)
 el.samplePrev.addEventListener('click', () => showSample(state.sampleIndex - 1))
 el.sampleNext.addEventListener('click', () => showSample(state.sampleIndex + 1))
@@ -675,9 +675,27 @@ function showResources(language) {
     el.resourcesSubname.textContent = ''
   }
   el.resourcesList.replaceChildren(...resourceLinks(language, config.resources).map(renderResource))
+  el.resourcesList.dataset.languageId = String(language.id)
   setPhase('resources')
   window.scrollTo(0, 0)
   focusHeading(el.resourcesHeading)
+  addBible(language)
+}
+
+/** Adds the language's YouVersion Bible to the list, when there is one. */
+async function addBible(language) {
+  if (!config.bibleUrl) return
+  const stillShowing = () => state.phase === 'resources' && el.resourcesList.dataset.languageId === String(language.id)
+  let link
+  try {
+    const response = await fetch(config.bibleUrl.replace('{id}', encodeURIComponent(language.id)))
+    if (!response.ok) throw new Error(`${response.status} ${await response.text().catch(() => '')}`)
+    link = bibleResource(await response.json(), language)
+  } catch (err) {
+    console.warn('Could not look up a Bible for this language', err)
+    return
+  }
+  if (link && stillShowing()) el.resourcesList.append(renderResource(link))
 }
 
 function renderResource(link) {
@@ -687,12 +705,19 @@ function renderResource(link) {
   item.querySelector('.resource-title').textContent = link.title
   item.querySelector('.resource-domain').textContent = link.domain
   item.querySelector('.resource-qr-domain').textContent = link.domain
+  if (link.note) {
+    const note = item.querySelector('.resource-note')
+    note.textContent = link.note
+    note.hidden = false
+  }
   const qr = item.querySelector('.qr')
   qr.innerHTML = qrSvg(link.url) // built from the URL by qr.js, not from page content
   qr.setAttribute('aria-label', `QR code for ${link.url}`)
   return item
 }
 
+// Back to the guess the language was chosen from, with its dialects, to choose again.
+el.resourcesBack.addEventListener('click', () => showSample(state.sampleIndex))
 el.resourcesAll.addEventListener('click', showRankings)
 el.resourcesRestart.addEventListener('click', reset)
 

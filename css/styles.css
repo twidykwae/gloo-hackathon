@@ -108,12 +108,12 @@ button:focus-visible,
   min-height: 30px;
 }
 
-/* As tall as the Sample screen's toolbar, so Record again stays put between the two screens. */
+/* As tall as the Sample screen's toolbar, so Speak again stays put between the two screens. */
 body[data-phase='results'] .app-bar {
   min-height: 44px;
 }
 
-/* Record again, top left on Rankings and the Sample screen: a small outlined pill with a mini mic. */
+/* Speak again, top left on Rankings and the Sample screen: a small outlined pill with a mini mic. */
 .record-again-button {
   display: inline-flex;
   flex: none;

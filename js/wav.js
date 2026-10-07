@@ -15,7 +15,7 @@ export async function toWav(recording, sampleRate = MODEL_SAMPLE_RATE) {
     audio = await context.decodeAudioData(await recording.arrayBuffer())
   } catch (err) {
     // The browser's own message ("Unable to decode audio data") doesn't say what to do.
-    throw new Error('The recording could not be read. Please record again, speaking for a few seconds.', {
+    throw new Error('The recording could not be read. Please speak again, for a few seconds.', {
       cause: err,
     })
   }

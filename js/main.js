@@ -194,7 +194,7 @@ function setPhase(phase) {
   for (const view of new Set(Object.values(VIEW_FOR_PHASE))) {
     el[view].hidden = VIEW_FOR_PHASE[phase] !== view
   }
-  el.appBar.hidden = phase !== 'results' // Record again; the Sample screen's toolbar has its own
+  el.appBar.hidden = phase !== 'results' // Speak again; the Sample screen's toolbar has its own
   const recording = phase === 'recording'
   el.recordButton.dataset.recording = String(recording)
   el.recordButton.setAttribute('aria-label', recording ? 'Stop recording' : 'Start recording')
@@ -515,7 +515,7 @@ el.showMore.addEventListener('click', () => {
   renderResults()
 })
 el.recordAgain.addEventListener('click', reset)
-// The Record again button at the top left of Rankings and the Sample screen.
+// The Speak again button at the top left of Rankings and the Sample screen.
 for (const button of document.querySelectorAll('.record-again-button')) button.addEventListener('click', reset)
 el.newDialect.addEventListener('click', () => showDialectForm({ from: 'rankings' }))
 el.errorRetry.addEventListener('click', reset)

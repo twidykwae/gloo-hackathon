@@ -320,7 +320,7 @@ attributes and a few custom properties, listed here.
 | `#record-level > span` | One bar each; `--level` is 0 to 1 |
 | `#detect-steps > li[data-state]` | `pending`, `active` or `done` |
 | `#near-me[aria-pressed="true"]` | "Near me" is on |
-| `#results-list > li.card` | One guess: `.card-open` (a button around `.card-name` and `.card-subname` that opens it on the Sample screen), `.card-name`, `.card-subname` (English name, only with a native name), `.card-local` ("Near you"), `.match`, `.card-play`, `.card-toggle[aria-expanded]`, `ul.dialects`. `data-label` is the model's code, `data-rank` its rank, `data-count` how many languages it covers. `--i` is its place on the page, for staggering the fade-in |
+| `#results-list > li.card` | One guess: `.card-open` (a button around `.card-name` and `.card-subname` that opens it on the Sample screen), `.card-name` (in the device's language), `.card-subname` (the language's own name, only when known and different), `.card-local` ("Near you"), `.match`, `.card-play`, `.card-toggle[aria-expanded]`, `ul.dialects`. `data-label` is the model's code, `data-rank` its rank, `data-count` how many languages it covers. `--i` is its place on the page, for staggering the fade-in |
 | `.match` | The match ring: `--pct` (0 to 100) fills it, `--strength` (0 to 1) colors it |
 | `li.dialect` | One dialect: `.dialect-name`, `.dialect-region`, `.dialect-local`, `.dialect-play` |
 | `#sample-dots > li` | `data-current="true"` for the guess on screen, `data-seen="true"` for ones already opened |

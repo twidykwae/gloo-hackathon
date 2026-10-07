@@ -30,6 +30,18 @@
         </div>
       </section>
 
+      <header id="app-bar" class="app-bar">
+        <!-- Shown on Rankings only; the Sample screen has the same button in its own toolbar. -->
+        <button type="button" id="app-bar-record" class="record-again-button">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
+            <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+            <line x1="12" x2="12" y1="19" y2="22" />
+          </svg>
+          Record again
+        </button>
+      </header>
+
       <!-- 1. Record -->
       <section id="record-view" class="screen" aria-labelledby="record-heading">
         <h1 id="record-heading" class="display">Speak in the language you know best.</h1>
@@ -133,7 +145,15 @@
       <!-- 4. Sample: one guess at a time, to listen and choose. -->
       <section id="sample-view" class="screen" aria-labelledby="sample-name" hidden>
         <div class="toolbar">
-          <span></span> <!-- no back arrow: "Show all rankings" goes back to the list -->
+          <!-- No back arrow ("Show all rankings" goes back to the list): the same Record again as on Rankings. -->
+          <button type="button" class="record-again-button">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
+              <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+              <line x1="12" x2="12" y1="19" y2="22" />
+            </svg>
+            Record again
+          </button>
           <!-- One dot per guess in the first few; the current one is wide. -->
           <ol id="sample-dots" class="dots" aria-hidden="true"></ol>
           <button type="button" id="sample-all" class="pill-button">Show all rankings</button>
@@ -173,20 +193,22 @@
             <ul id="sample-dialects" class="sample-dialects"></ul>
           </div>
         </div>
-        <p id="sample-next-hint" class="sample-next-hint">No match? Tap next</p>
-        <div class="sample-nav">
-          <button type="button" id="sample-prev" class="nav-prev" aria-label="Previous match"></button>
-          <!-- Previews the next guess: its match ring and name. -->
-          <button type="button" id="sample-next" class="nav-next">
-            <span id="sample-next-match" class="match match-small">
-              <svg viewBox="0 0 44 44" aria-hidden="true">
-                <circle class="match-track" cx="22" cy="22" r="18" pathLength="100" />
-                <circle class="match-fill" cx="22" cy="22" r="18" pathLength="100" />
-              </svg>
-              <span class="match-value"></span>
-            </span>
-            <span class="nav-next-label">Next – <span id="sample-next-name"></span></span>
-          </button>
+        <div class="sample-nav-fixed">
+          <p id="sample-next-hint" class="sample-next-hint">No match? Tap next</p>
+          <div class="sample-nav">
+            <button type="button" id="sample-prev" class="nav-prev" aria-label="Previous match"></button>
+            <!-- Previews the next guess: its match ring and name. -->
+            <button type="button" id="sample-next" class="nav-next">
+              <span id="sample-next-match" class="match match-small">
+                <svg viewBox="0 0 44 44" aria-hidden="true">
+                  <circle class="match-track" cx="22" cy="22" r="18" pathLength="100" />
+                  <circle class="match-fill" cx="22" cy="22" r="18" pathLength="100" />
+                </svg>
+                <span class="match-value"></span>
+              </span>
+              <span class="nav-next-label">Next – <span id="sample-next-name"></span></span>
+            </button>
+          </div>
         </div>
       </section>
 

@@ -150,7 +150,9 @@ Record ──▶ recording ──tap, or 20 s──▶ Detect + consent popup �
   match ring and sample. A guess with one language has a big player (bars
   fill in as it plays) and a "This is my language" button. A guess with
   several lists its dialects, each with its own sample and a choose button.
-  Previous and Next move through the guesses; dots show the first five
+  Under it, "No match? Tap next", a square Previous button, and a Next
+  button that previews the next guess: its match ring and "Next – {name}".
+  On the last guess there's no Next. Dots show the first five
   (`compareCount`). Samples turn grey once heard. "Show all rankings" and the
   back button go to Rankings.
 - **Rankings.** Every guess as a card (see "The rankings screen"). Tapping a
@@ -272,6 +274,7 @@ attributes and a few custom properties, listed here.
 | `li.dialect` | One dialect: `.dialect-name`, `.dialect-region`, `.dialect-local`, `.dialect-play` |
 | `#sample-dots > li` | `data-current="true"` for the guess on screen, `data-seen="true"` for ones already opened |
 | `#sample-single`, `#sample-dialects-block` | The Sample screen's two layouts: one language (big `#sample-play` and `#sample-wave`), or several (`li.sample-dialect` rows with `.choose-button`) |
+| `#sample-prev`, `#sample-next` | Previous (arrow only) and Next. Next holds `#sample-next-match` (a small `.match` ring) and `.nav-next-label`; it and `#sample-next-hint` are hidden on the last guess |
 | `#sample-wave > span` | Progress bars: `--height` is the bar's height; `.played` once playback has passed it |
 | `.sample-play[data-played="true"]` | That sample was already heard |
 | `#resources-list > li.resource` | One link: `.resource-link`, `.resource-initial`, `.resource-title`, `.resource-domain`, `.qr` (an inline SVG drawn in `currentColor`) |

@@ -30,6 +30,8 @@
   --on-accent: #fff7f0;
   --near: #2f7d4f;
   --near-bg: rgba(47, 125, 79, 0.12);
+  --sand: #ddd3c1; /* the Sample screen's Next button */
+  --sand-hover: #d2c6b1;
   --go: #2f7d4f; /* a sample not heard yet, on the Sample screen */
 
   /* Type */
@@ -360,6 +362,37 @@ h2[tabindex='-1']:focus {
 }
 
 /* --------------------------------------------------------- 1. record */
+
+/*
+ * Never more than two lines of chips: whatever wraps to a third is cut off.
+ * Chips stretch to fill their line, so both lines start and end together.
+ */
+.hints {
+  --chip: 30px;
+  --gap: 6px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--gap);
+  max-height: calc(var(--chip) * 2 + var(--gap));
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  list-style: none;
+}
+
+.hints li {
+  display: inline-flex;
+  flex: 1 0 auto;
+  align-items: center;
+  justify-content: center;
+  height: var(--chip);
+  padding: 0 11px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--ink-2);
+  font: 500 13px var(--sans);
+  white-space: nowrap;
+}
 
 .mic {
   display: grid;
@@ -969,7 +1002,8 @@ body:not([data-phase='recording']) .level::before {
 }
 
 /* Moves between guesses instead of drawing in once. */
-.match-large .match-fill {
+.match-large .match-fill,
+.match-small .match-fill {
   animation: none;
   transition: stroke-dashoffset 0.8s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
@@ -1098,32 +1132,84 @@ body:not([data-phase='recording']) .level::before {
   color: var(--paper);
 }
 
+.sample-next-hint {
+  margin: 0;
+  padding-top: 16px;
+  color: var(--muted);
+  font: 400 17px var(--sans);
+  text-align: center;
+}
+
 .sample-nav {
   display: flex;
   gap: 8px;
-  padding-top: 16px;
+  padding-top: 10px;
 }
 
 .sample-nav button {
-  flex: 1;
-  gap: 8px;
-  min-width: 0;
-  min-height: 56px;
+  display: flex;
+  align-items: center;
+  height: 64px;
   border-radius: 18px;
+  color: var(--ink);
+  cursor: pointer;
 }
 
-.sample-nav button:disabled {
+/* Previous: a square arrow button. */
+.nav-prev {
+  flex: none;
+  justify-content: center;
+  width: 64px;
+  border: 1.5px solid var(--ink);
+  background: transparent;
+}
+
+.nav-prev:disabled {
   opacity: 0.35;
   cursor: default;
 }
 
-.sample-nav .secondary-button:disabled:hover {
-  background: transparent;
-  color: var(--ink);
+/* Next: the next guess's ring and name, then an arrow. */
+.nav-next {
+  flex: 1;
+  gap: 12px;
+  min-width: 0;
+  padding: 0 16px 0 10px;
+  border: none;
+  background: var(--sand);
+  text-align: left;
+  transition: background 0.15s;
 }
 
-.sample-nav .primary-button:disabled:hover {
-  background: var(--ink);
+.nav-next:hover {
+  background: var(--sand-hover);
+}
+
+.nav-next-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  font: 600 15px var(--sans);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.match-small {
+  width: 44px;
+  height: 44px;
+}
+
+.match-small circle {
+  stroke-width: 3.5;
+}
+
+.match-small .match-track {
+  stroke: rgba(26, 24, 20, 0.12); /* shows on the sand background */
+}
+
+.match-small .match-value {
+  color: var(--ink);
+  font-size: 11px;
 }
 
 /* ------------------------------------------------------ 5. resources */

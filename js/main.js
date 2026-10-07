@@ -53,6 +53,9 @@ const el = {
   sampleDialects: $('sample-dialects'),
   samplePrev: $('sample-prev'),
   sampleNext: $('sample-next'),
+  sampleNextHint: $('sample-next-hint'),
+  sampleNextMatch: $('sample-next-match'),
+  sampleNextName: $('sample-next-name'),
   resourcesView: $('resources-view'),
   resourcesAll: $('resources-all'),
   resourcesHeading: $('resources-heading'),
@@ -400,10 +403,7 @@ function renderCard(candidate, index, country) {
   }
   part('local').hidden = !candidate.languages.some((lang) => isInCountry(lang, country))
 
-  const match = card.querySelector('.match')
-  match.style.setProperty('--pct', String(candidate.percent))
-  match.style.setProperty('--strength', matchStrength(candidate.confidence, state.topConfidence).toFixed(3))
-  card.querySelector('.match-value').textContent = formatPercent(candidate.percent)
+  showMatch(card.querySelector('.match'), candidate)
 
   const play = part('play')
   if (candidate.sampleId == null) markSampleMissing(play, 'No sample')
@@ -556,9 +556,7 @@ function renderSample() {
     el.sampleName.lang = ''
     el.sampleSubname.textContent = ''
   }
-  el.sampleMatch.style.setProperty('--pct', String(candidate.percent))
-  el.sampleMatch.style.setProperty('--strength', matchStrength(candidate.confidence, state.topConfidence).toFixed(3))
-  el.sampleMatch.querySelector('.match-value').textContent = formatPercent(candidate.percent)
+  showMatch(el.sampleMatch, candidate)
 
   const several = candidate.languages.length > 1
   el.sampleSingle.hidden = several
@@ -577,8 +575,23 @@ function renderSample() {
     showWaveProgress(0)
   }
 
+  // Next previews the following guess; the last guess has none.
+  const next = state.candidates[index + 1]
   el.samplePrev.disabled = index === 0
-  el.sampleNext.disabled = index === state.candidates.length - 1
+  el.sampleNext.hidden = !next
+  el.sampleNextHint.hidden = !next
+  if (next) {
+    showMatch(el.sampleNextMatch, next)
+    el.sampleNextName.textContent = next.name
+    el.sampleNext.setAttribute('aria-label', `Next match: ${next.name}, ${formatPercent(next.percent)}`)
+  }
+}
+
+/** Fills a match ring (`.match`) for a guess. */
+function showMatch(ring, candidate) {
+  ring.style.setProperty('--pct', String(candidate.percent))
+  ring.style.setProperty('--strength', matchStrength(candidate.confidence, state.topConfidence).toFixed(3))
+  ring.querySelector('.match-value').textContent = formatPercent(candidate.percent)
 }
 
 function renderSampleDialect(language, groupName, country) {

@@ -106,6 +106,7 @@ cd server
 | `js/bible.js` | Turns the server's `/bible/{id}` answer into a Resources screen link. No DOM, fully tested |
 | `js/vendor/qrcode.mjs` | The QR encoder, [qrcode-generator](https://github.com/kazuhikoarase/qrcode-generator) 2.0.4 (MIT), copied in so it works offline |
 | `data/languages.json` | All 6,816 GRN languages: name, native name (173 of them), ISO code, macrolanguage code, parent, whether a sample exists, countries |
+| `images/` | The Resources screen's logos: the 5fish and YouVersion app icons, 128 px |
 | `data/countries.geojson` | Country borders (Natural Earth, public domain) for GPS to country, offline |
 | `data/samples/` | Saved model responses: real ones from Meta's model, plus a made-up LAMP-format one (see below) |
 | `tools/build_data.py` | Rebuilds `data/languages.json` from the 5fish database, keeping the sample flags `mark_samples.py` wrote. Downloads the country borders only if the file is missing, or with `--borders` |
@@ -163,9 +164,10 @@ Record ──▶ recording ──tap, or 20 s──▶ Detect + consent popup �
 - **Choosing** a language or dialect saves the choice (`backend.saveChoice`,
   see "Still to decide") and opens Resources.
 - **Resources.** Links for the chosen language, from `resources` in
-  `js/config.js`, each with a QR code so it can be opened on the person's own
-  phone. For now there is one: the language's 5fish page. "Start over" goes
-  back to Record.
+  `js/config.js`, each a QR code so it can be opened on the person's own
+  phone and a "Go to …" button, with the site's logo above it, to open it
+  here. For now that's the language's 5fish page, plus its YouVersion Bible
+  when there is one. "Start over" goes back to Record.
 - **Errors** (no microphone permission, server down) get their own screen with
   "Try again".
 
@@ -279,7 +281,7 @@ attributes and a few custom properties, listed here.
 | `#sample-single`, `#sample-dialects-block` | The Sample screen's two layouts: one language (big `#sample-play` and `#sample-wave`), or several (`li.sample-dialect` rows with `.choose-button`) |
 | `#sample-wave > span` | Progress bars: `--height` is the bar's height; `.played` once playback has passed it |
 | `.sample-play[data-played="true"]` | That sample was already heard |
-| `#resources-list > li.resource` | One link: `.resource-link`, `.resource-initial`, `.resource-title`, `.resource-domain`, `.qr` (an inline SVG drawn in `currentColor`) |
+| `#resources-list > li.resource` | One link: `.qr` (an inline SVG drawn in `currentColor`) in a white box, and beside it `.resource-action`: `.resource-logo` above `.resource-button` |
 | `.play-button[data-playing="true"]` | Its sample is playing; the CSS draws a square stop icon instead of the play triangle. `--icon` on a button sets the icon size |
 | `.play-button[data-sample="missing"]` | No sample to play: disabled, labelled "No sample" or "Sample unavailable" |
 | `#consent-dialog` | A native `<dialog>`; its backdrop is `#consent-dialog::backdrop` |
@@ -407,9 +409,15 @@ paths = fetch_samples(["1", "51", "92"])  # {id: Path, or None if the download f
 ## Bibles from YouVersion
 
 After "This is my language", the Resources screen adds the language's Bible
-on YouVersion below the 5fish link, when YouVersion has one: a link and QR
-code to `bible.com/versions/<id>`, plus the version name and copyright, which
-YouVersion requires wherever its Bibles are shown.
+on YouVersion below the 5fish link, when YouVersion has one: a QR code and a
+"Go to YouVersion" button to `bible.com/versions/<id>`. The page only links
+there, and bible.com shows the version name and copyright itself.
+
+bible.com links open the YouVersion app when it's installed, and the website
+when it isn't: bible.com lists the app for every path in its
+`/.well-known/apple-app-site-association` (iOS) and `assetlinks.json`
+(Android). That covers both the button and the QR code. Links tapped inside
+some in-app browsers (WhatsApp, Facebook) may still open the website.
 
 **On the server**, `GET /bible/{id}` (`server/app/bibles.py`) maps the GRN
 language to its ISO 639-3 code (dialects use their parent's), then to

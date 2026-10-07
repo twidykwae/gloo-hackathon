@@ -122,7 +122,7 @@ def create_app(
 
     # The page. Only these folders are served, so the server's own code and
     # tools/ (with the 5fish database) stay private.
-    for folder in ("css", "js", "data"):
+    for folder in ("css", "js", "data", "images"):
         app.mount(f"/{folder}", StaticFiles(directory=PAGE_DIR / folder), name=folder)
 
     @app.get("/", include_in_schema=False)

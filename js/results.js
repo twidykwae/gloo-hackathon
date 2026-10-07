@@ -166,15 +166,17 @@ export function describeCountries(codes, { max = 3 } = {}) {
 
 /**
  * The Resources screen's links for a language, from config.resources:
- * {id} and {name} filled in, plus the domain to show ("5fish.mobi").
+ * {id} and {name} filled in. The button label defaults to "Go to" the domain
+ * ("Go to 5fish.mobi").
  */
 export function resourceLinks(language, resources) {
-  return resources.map(({ title, url }) => {
+  return resources.map(({ title, button, logo, url }) => {
     const href = url.replaceAll('{id}', encodeURIComponent(language.id))
     return {
       title: title.replaceAll('{name}', language.name),
+      button: button ?? `Go to ${new URL(href).hostname.replace(/^www\./, '')}`,
+      ...(logo && { logo }),
       url: href,
-      domain: new URL(href).hostname.replace(/^www\./, ''),
     }
   })
 }

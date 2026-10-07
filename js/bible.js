@@ -4,19 +4,17 @@
 /**
  * A resource link for the language's Bible, in the same shape as
  * resourceLinks() in results.js, or null when YouVersion has no Bible for it.
- * `note` carries the version name and copyright, which YouVersion requires
- * wherever its Bibles are shown.
+ * It only links to bible.com, which shows the version name and copyright itself.
+ * bible.com links open the YouVersion app when it's installed (iOS universal
+ * links and Android app links), and the website otherwise.
  */
 export function bibleResource(body, language) {
   const bible = body?.bible
   if (!bible?.url) return null
-  // The Bible's name in the language itself, when YouVersion has one.
-  const version = bible.localized_title || bible.title || bible.abbreviation || ''
-  const abbreviation = bible.abbreviation && bible.abbreviation !== version ? ` (${bible.abbreviation})` : ''
   return {
     title: `Read the Bible in ${language.name}`,
+    button: 'Go to YouVersion',
+    logo: 'images/youversion.png',
     url: bible.url,
-    domain: new URL(bible.url).hostname.replace(/^www\./, ''),
-    note: [version + abbreviation, bible.copyright].filter(Boolean).join(' · '),
   }
 }

@@ -1,4 +1,4 @@
-# Language ID
+# Speak The Heart
 
 **Speak for a few seconds, and find recordings in your own language.**
 
@@ -7,7 +7,7 @@ Global Recordings Network (GRN) has audio Bible stories and teaching in over
 spoken, not written. The hard part is often the first step: someone who speaks a minority
 language can't always name it, or spell it, in a language the helper knows.
 
-Language ID solves that by listening. A person speaks into the phone or
+Speak The Heart solves that by listening. A person speaks into the phone or
 laptop in the language they know best. Meta's open speech model guesses the
 language, and the app matches its guesses to GRN's catalog. The person then
 hears short GRN samples of the best matches and picks the one that sounds

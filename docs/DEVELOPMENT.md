@@ -1,4 +1,4 @@
-# Language ID: developer guide
+# Speak The Heart: developer guide
 
 How the page and server work, for the team. To install and run the project,
 see the [README](../README.md).

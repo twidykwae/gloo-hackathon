@@ -1186,4 +1186,4 @@ samplePlayer.addEventListener('error', () => {
 })
 
 setPhase('idle')
-console.info(`Language ID: using the ${backend.name} backend`)
+console.info(`Speak The Heart: using the ${backend.name} backend`)

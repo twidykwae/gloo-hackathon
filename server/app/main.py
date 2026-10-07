@@ -1,4 +1,4 @@
-"""The Language ID server: runs the model and serves the page.
+"""The Speak The Heart server: runs the model and serves the page.
 
 Run from the server/ folder:
     .venv\\Scripts\\python -m uvicorn app.main:create_app --factory --port 8080
@@ -138,7 +138,7 @@ def create_app(
     store = Store(settings.storage_dir)
     grn_rows = {row["id"]: row for row in json.loads((PAGE_DIR / "data" / "languages.json").read_text(encoding="utf-8"))}
 
-    app = FastAPI(title="Language ID", version="0.2.0")
+    app = FastAPI(title="Speak The Heart", version="0.2.0")
     if settings.cors_origins:
         app.add_middleware(
             CORSMiddleware, allow_origins=settings.cors_origins, allow_methods=["GET", "POST"], allow_headers=["*"]

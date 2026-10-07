@@ -2,7 +2,7 @@
   "name": "language-id-web",
   "private": true,
   "type": "module",
-  "description": "Language ID page: record, consent, identify, ranked results. Vanilla HTML/JS/CSS, no build step.",
+  "description": "Speak The Heart: record, consent, identify, ranked results. Vanilla HTML/JS/CSS, no build step.",
   "scripts": {
     "test": "node --test \"tests/**/*.test.js\"",
     "serve-page": "python -m http.server 8081"

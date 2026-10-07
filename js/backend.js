@@ -7,7 +7,7 @@ export function createBackend(config) {
 
 /** Stand-in server: sample data after a delay; answers, recordings and choices kept in memory. */
 function mockBackend(config) {
-  const saved = { consents: [], recordings: [], choices: [] }
+  const saved = { consents: [], recordings: [], choices: [], dialects: [] }
   // Inspect from the browser console: window.mockServer.consents
   window.mockServer = saved
   const wait = (ms, signal) =>
@@ -40,6 +40,10 @@ function mockBackend(config) {
     async saveChoice(choice) {
       saved.choices.push(choice)
       console.info('[mock] choice saved', choice)
+    },
+    async saveNewDialect(report) {
+      saved.dialects.push(report)
+      console.info('[mock] new dialect saved', report)
     },
   }
 }
@@ -83,6 +87,10 @@ function httpBackend(config) {
     async saveChoice(choice) {
       if (!config.choiceUrl) return console.warn('choiceUrl not set; choice not saved', choice)
       await post(config.choiceUrl, new Blob([JSON.stringify(choice)], { type: 'application/json' }))
+    },
+    async saveNewDialect(report) {
+      if (!config.dialectUrl) return console.warn('dialectUrl not set; new dialect not saved', report)
+      await post(config.dialectUrl, new Blob([JSON.stringify(report)], { type: 'application/json' }))
     },
     async saveRecording(recording, meta) {
       if (!config.recordingUrl) return console.warn('recordingUrl not set; recording not kept', meta)

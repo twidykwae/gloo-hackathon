@@ -106,7 +106,17 @@
         <ol id="results-list" class="cards"></ol>
         <p id="results-empty" class="lede" hidden>None of the model's guesses are in our catalog. Try recording again.</p>
         <button type="button" id="show-more" class="secondary-button" hidden>Show more</button>
-        <button type="button" id="record-again" class="link-button record-again">None of these, record again</button>
+        <!-- When none of the guesses is right. -->
+        <div class="results-end">
+          <button type="button" id="record-again" class="outline-button">
+            <span class="outline-icon dot-icon" aria-hidden="true"></span>
+            No match, record again
+          </button>
+          <button type="button" id="new-dialect" class="outline-button">
+            <span class="outline-icon plus-icon" aria-hidden="true"></span>
+            None, enter new dialect
+          </button>
+        </div>
       </section>
 
       <!-- 4. Sample: one guess at a time, to listen and choose. -->
@@ -174,7 +184,7 @@
         <div class="toolbar">
           <!-- Back to the guess they chose from, to pick another language or dialect. -->
           <button type="button" id="resources-back" class="icon-button back-button" aria-label="Back to choose a different language or dialect"></button>        </div>
-        <p class="eyebrow resources-eyebrow">You chose</p>
+        <p id="resources-eyebrow" class="eyebrow resources-eyebrow">You chose</p>
         <h2 id="resources-heading" class="title resources-title"></h2>
         <p id="resources-subname" class="lede"></p>
 
@@ -205,6 +215,48 @@
           </form>
         </section>
         <button type="button" id="resources-restart" class="link-button record-again">Start over with a new recording</button>
+      </section>
+
+      <!-- 6. A language or dialect the catalog doesn't have: saved for training, or as a lead for the team. -->
+      <section id="dialect-view" class="screen" aria-labelledby="dialect-heading" hidden>
+        <div class="toolbar">
+          <button type="button" id="dialect-back" class="icon-button back-button" aria-label="Back to all rankings"></button>
+        </div>
+        <h2 id="dialect-heading" class="title dialect-title">Tell us about your dialect</h2>
+        <p class="lede">This helps us recognize it for the next person.</p>
+        <!-- Only after "No, don't keep it": there's no recording to go with what they type. -->
+        <p id="dialect-note" class="dialect-note" hidden>
+          You asked us not to keep your recording, so we'll save only what you type here.
+        </p>
+        <form id="dialect-form" class="dialect-form" novalidate>
+          <div class="field">
+            <label for="dialect-parent">Parent language</label>
+            <div class="suggest">
+              <input id="dialect-parent" name="parent" type="text" autocomplete="off" spellcheck="false" placeholder="Start typing, e.g. Portuguese" />
+              <ul id="dialect-parent-list" class="suggestions" hidden></ul>
+            </div>
+          </div>
+          <div class="field">
+            <label for="dialect-name">Dialect name</label>
+            <input id="dialect-name" name="dialect" type="text" autocomplete="off" placeholder="e.g. Mineiro" />
+          </div>
+          <div class="field">
+            <label for="dialect-country">Country</label>
+            <div class="suggest">
+              <input id="dialect-country" name="country" type="text" autocomplete="off" spellcheck="false" placeholder="e.g. Brazil" />
+              <ul id="dialect-country-list" class="suggestions" hidden></ul>
+            </div>
+          </div>
+          <button type="submit" id="dialect-submit" class="primary-button dialect-submit" disabled>Submit dialect</button>
+        </form>
+      </section>
+
+      <!-- 7. Thanks, after a new dialect whose parent language isn't in the catalog either. -->
+      <section id="thanks-view" class="screen" aria-labelledby="thanks-heading" hidden>
+        <h2 id="thanks-heading" class="title">Thank you</h2>
+        <p id="thanks-text" class="lede"></p>
+        <button type="button" id="thanks-restart" class="primary-button">Start over with a new recording</button>
+        <button type="button" id="thanks-back" class="link-button thanks-back">Back to all rankings</button>
       </section>
 
       <!-- Error -->

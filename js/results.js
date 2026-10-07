@@ -96,6 +96,8 @@ export function toCandidates(response, index) {
       percent: Math.round(confidence * 10000) / 100,
       name: lead?.name ?? null,
       native: lead?.native ?? null,
+      // GRN ID of the language the guess is named after (maybe a heading, such as English).
+      leadId: lead?.id ?? null,
       // GRN ID of the sample for the guess as a whole; null if none of its languages has one.
       sampleId: sampleFor(lead, languages),
       // false for labels the 5fish catalog doesn't have.

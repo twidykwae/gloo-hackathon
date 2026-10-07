@@ -5,6 +5,8 @@ import { assistantError, chatRequest, cleanQuestion, DEFAULT_LABELS, DEFAULT_QUE
 import { bibleResource } from './bible.js'
 import { qrSvg } from './qr.js'
 import { startRecording } from './recorder.js'
+import { countryList, countrySearch, exactMatch, fold, languageSearch } from './search.js'
+import { attachSuggestions } from './suggest.js'
 import {
   describeCountries,
   firstPage,
@@ -38,6 +40,7 @@ const el = {
   empty: $('results-empty'),
   showMore: $('show-more'),
   recordAgain: $('record-again'),
+  newDialect: $('new-dialect'),
   sampleView: $('sample-view'),
   sampleDots: $('sample-dots'),
   sampleAll: $('sample-all'),
@@ -59,6 +62,7 @@ const el = {
   sampleNextName: $('sample-next-name'),
   resourcesView: $('resources-view'),
   resourcesBack: $('resources-back'),
+  resourcesEyebrow: $('resources-eyebrow'),
   guide: $('guide'),
   guideText: $('guide-text'),
   guideLanguage: $('guide-language'),
@@ -75,6 +79,22 @@ const el = {
   resourcesSubname: $('resources-subname'),
   resourcesList: $('resources-list'),
   resourcesRestart: $('resources-restart'),
+  dialectView: $('dialect-view'),
+  dialectHeading: $('dialect-heading'),
+  dialectBack: $('dialect-back'),
+  dialectNote: $('dialect-note'),
+  dialectForm: $('dialect-form'),
+  dialectParent: $('dialect-parent'),
+  dialectParentList: $('dialect-parent-list'),
+  dialectName: $('dialect-name'),
+  dialectCountry: $('dialect-country'),
+  dialectCountryList: $('dialect-country-list'),
+  dialectSubmit: $('dialect-submit'),
+  thanksView: $('thanks-view'),
+  thanksHeading: $('thanks-heading'),
+  thanksText: $('thanks-text'),
+  thanksRestart: $('thanks-restart'),
+  thanksBack: $('thanks-back'),
   errorView: $('error-view'),
   errorMessage: $('error-message'),
   errorRetry: $('error-retry'),
@@ -114,6 +134,8 @@ const state = {
   location: null, // { code, name } once "Near me" has found it
   // Gloo AI on the Resources screen, for one language at a time.
   assistant: { languageId: null, log: [], busy: false },
+  // Where Resources' back button goes: the Sample screen, or the new-dialect form.
+  resourcesFrom: 'sample',
   sampleIndex: 0, // the guess on the Sample screen, in state.candidates
   seen: new Set(), // guesses opened on the Sample screen, by index
   played: new Set(), // GRN IDs whose sample was played, this recording
@@ -137,10 +159,12 @@ const VIEW_FOR_PHASE = {
   sample: 'sampleView',
   results: 'resultsView',
   resources: 'resourcesView',
+  dialect: 'dialectView',
+  thanks: 'thanksView',
   error: 'errorView',
 }
 
-// The Sample and Resources screens have their own toolbar instead.
+// The other screens have their own toolbar instead, or need none.
 const STEP_FOR_PHASE = {
   idle: 'Step 1 of 3',
   recording: 'Step 1 of 3',
@@ -149,6 +173,8 @@ const STEP_FOR_PHASE = {
   results: 'Step 3 of 3',
   sample: '',
   resources: '',
+  dialect: '',
+  thanks: '',
   error: '',
 }
 
@@ -200,6 +226,7 @@ function reset() {
   state.sampleIndex = 0
   state.seen.clear()
   state.played.clear()
+  clearDialectForm()
   setPhase('idle')
 }
 
@@ -511,6 +538,7 @@ el.showMore.addEventListener('click', () => {
   renderResults()
 })
 el.recordAgain.addEventListener('click', reset)
+el.newDialect.addEventListener('click', () => showDialectForm())
 el.errorRetry.addEventListener('click', reset)
 
 // ------------------------------------------------------------- sample screen
@@ -675,10 +703,12 @@ function choose(language, candidate) {
     chosenAt: new Date().toISOString(),
   }
   backend.saveChoice(choice).catch((err) => console.error('Saving the choice failed', err))
+  state.resourcesFrom = 'sample'
   showResources(language)
 }
 
-function showResources(language) {
+function showResources(language, { eyebrow = 'You chose' } = {}) {
+  el.resourcesEyebrow.textContent = eyebrow
   if (language.native) {
     el.resourcesHeading.textContent = language.native
     el.resourcesHeading.lang = language.iso ?? ''
@@ -728,8 +758,11 @@ function renderResource(link) {
   return item
 }
 
-// Back to the guess the language was chosen from, with its dialects, to choose again.
-el.resourcesBack.addEventListener('click', () => showSample(state.sampleIndex))
+// Back to where the language was chosen: its guess on the Sample screen, to
+// choose again, or the new-dialect form.
+el.resourcesBack.addEventListener('click', () =>
+  state.resourcesFrom === 'dialect' ? showDialectForm() : showSample(state.sampleIndex),
+)
 // ------------------------------------------------- Gloo AI: guide and chat
 
 /** The guide note and the chat for this language. Coming back to the same language keeps the conversation. */
@@ -907,6 +940,141 @@ el.chatSuggestions.addEventListener('click', (e) => {
   if (chip) ask(chip.textContent)
 })
 el.resourcesRestart.addEventListener('click', reset)
+
+// ------------------------------------------------------------- new dialect
+
+// "None, enter new dialect": a language or dialect the catalog doesn't have.
+// Always saved: with a kept recording it's training data, without one a lead.
+
+const countries = countryList('en')
+const findCountry = countrySearch(countries)
+const countryNames = (country) => [country.name, country.code]
+const languageNames = (language) => [language.name, language.native]
+let languageIndex = null
+let allLanguages = []
+let findLanguage = () => []
+languagesReady
+  .then((index) => {
+    languageIndex = index
+    allLanguages = [...index.byId.values()]
+    findLanguage = languageSearch(allLanguages)
+  })
+  .catch(() => {}) // reported when identifying
+
+// What was picked from the suggestions; typing over it un-picks it.
+const dialectPicks = { parent: null, country: null }
+
+/** Before anything is typed: the languages the model thought most likely. */
+function topGuessLanguages() {
+  const languages = state.candidates.slice(0, 5).map((c) => languageIndex?.byId.get(c.leadId))
+  return [...new Set(languages.filter(Boolean))]
+}
+
+attachSuggestions(el.dialectParent, el.dialectParentList, {
+  find: (text) => (fold(text) ? findLanguage(text, { minLength: 2 }) : topGuessLanguages()),
+  // The native name tells similar names apart; without one, where it's spoken.
+  describe: (language) => ({
+    label: language.name,
+    detail: language.native || describeCountries(language.countries ?? []),
+    lang: language.native ? (language.iso ?? '') : '',
+  }),
+  onPick: (language) => {
+    dialectPicks.parent = language
+    updateDialectSubmit()
+  },
+})
+
+attachSuggestions(el.dialectCountry, el.dialectCountryList, {
+  find: (text) => findCountry(text),
+  describe: (country) => ({ label: country.name }),
+  onPick: (country) => {
+    dialectPicks.country = country
+    updateDialectSubmit()
+  },
+})
+
+el.dialectParent.addEventListener('input', () => {
+  if (dialectPicks.parent && el.dialectParent.value !== dialectPicks.parent.name) dialectPicks.parent = null
+})
+el.dialectCountry.addEventListener('input', () => {
+  if (dialectPicks.country && el.dialectCountry.value !== dialectPicks.country.name) dialectPicks.country = null
+})
+
+/** All three boxes are needed. */
+function updateDialectSubmit() {
+  el.dialectSubmit.disabled = ![el.dialectParent, el.dialectName, el.dialectCountry].every((box) => box.value.trim())
+}
+el.dialectForm.addEventListener('input', updateDialectSubmit)
+
+function showDialectForm() {
+  stopSample()
+  el.dialectNote.hidden = state.session?.consent !== false
+  // The country "Near me" found, if it was used.
+  if (!el.dialectCountry.value && state.location?.code) {
+    const here = countries.find((country) => country.code === state.location.code)
+    if (here) {
+      el.dialectCountry.value = here.name
+      dialectPicks.country = here
+    }
+  }
+  updateDialectSubmit()
+  setPhase('dialect')
+  window.scrollTo(0, 0)
+  focusHeading(el.dialectHeading)
+}
+
+function clearDialectForm() {
+  el.dialectForm.reset()
+  dialectPicks.parent = null
+  dialectPicks.country = null
+  updateDialectSubmit()
+}
+
+el.dialectForm.addEventListener('submit', (e) => {
+  e.preventDefault()
+  const parentText = el.dialectParent.value.trim()
+  const dialectName = el.dialectName.value.trim()
+  const countryText = el.dialectCountry.value.trim()
+  if (!parentText || !dialectName || !countryText) return
+  // Typed out in full instead of picked: still a known one if the name matches exactly.
+  const parent = dialectPicks.parent ?? exactMatch(allLanguages, languageNames, parentText)
+  const country = dialectPicks.country ?? exactMatch(countries, countryNames, countryText)
+  const session = state.session
+  const report = {
+    sessionId: session?.id ?? null,
+    // true: the kept recording has the same sessionId (training data); false: a lead, no audio.
+    consent: session?.consent ?? null,
+    parentLanguageId: parent?.id ?? null, // null: typed, and not in the catalog
+    parentLanguageName: parent?.name ?? parentText,
+    dialectName,
+    countryCode: country?.code ?? null,
+    countryName: country?.name ?? countryText,
+    // What the model heard, for whoever reviews it.
+    modelGuesses: state.candidates.slice(0, 5).map((c) => ({ label: c.label, name: c.name, confidence: c.confidence })),
+    submittedAt: new Date().toISOString(),
+  }
+  backend.saveNewDialect(report).catch((err) => console.error('Saving the new dialect failed', err))
+  if (parent) {
+    // Until it's in the catalog, the closest we have: the language it belongs to.
+    state.resourcesFrom = 'dialect'
+    showResources(parent, { eyebrow: 'Thank you! The closest we have' })
+  } else {
+    showThanks(report)
+  }
+})
+
+function showThanks(report) {
+  el.thanksText.textContent =
+    `We saved ${report.dialectName} (${report.parentLanguageName}, ${report.countryName}). ` +
+    'It helps us recognize it for the next person.'
+  setPhase('thanks')
+  window.scrollTo(0, 0)
+  focusHeading(el.thanksHeading)
+}
+
+el.dialectBack.addEventListener('click', showRankings)
+el.thanksBack.addEventListener('click', showRankings)
+el.thanksRestart.addEventListener('click', reset)
 
 // ------------------------------------------------------------ sample playback
 

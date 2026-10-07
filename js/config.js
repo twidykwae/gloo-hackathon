@@ -20,6 +20,10 @@ export const config = {
   // Where "This is my language" choices go. With a kept recording (same
   // sessionId), a choice says which language the recording is in.
   choiceUrl: null,
+  // Where "None, enter new dialect" reports go: a language or dialect the
+  // catalog doesn't have. With a kept recording (same sessionId) it's training
+  // data; without one, a lead for the team to follow up.
+  dialectUrl: null,
 
   // Links on the last screen, for the chosen language. {id} is its GRN
   // language ID and {name} its name; `button` is the button's label and `logo`

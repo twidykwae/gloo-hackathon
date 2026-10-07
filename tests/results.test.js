@@ -126,6 +126,13 @@ describe('toCandidates with ISO codes (Meta’s model)', () => {
     assert.equal(mam.native, null) // none known
   })
 
+  it('keeps the GRN ID of the language the guess is named after, even a heading', () => {
+    assert.equal(tzo.leadId, 100)
+    const [eng] = toCandidates({ label_kind: 'iso639_3', predictions: [{ label: 'eng', probability: 1 }] }, index)
+    assert.equal(eng.leadId, 500) // English, a heading, though not one of its listed languages
+    assert.equal(zzz.leadId, null)
+  })
+
   it('picks the sample for the guess as a whole: the language it is named after', () => {
     assert.equal(tzo.sampleId, 100)
     const [snd] = toCandidates({ label_kind: 'iso639_3', predictions: [{ label: 'snd', probability: 1 }] }, index)

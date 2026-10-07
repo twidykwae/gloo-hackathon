@@ -117,10 +117,7 @@
       <!-- 3. Rankings -->
       <section id="results-view" class="screen" aria-labelledby="results-heading" hidden>
         <h2 id="results-heading" class="title">Which one sounds like you?</h2>
-        <p class="lede">
-          Ranked by match. Tap <span class="play-glyph" role="img" aria-label="play"></span> to hear it, or tap a
-          language to compare samples.
-        </p>
+        <p class="lede">Ranked by match. Tap a language to hear its samples.</p>
         <div class="results-tools">
           <!-- Asks for the location the first time; marks languages listed for that country. -->
           <button type="button" id="near-me" class="chip" aria-pressed="false">Near me</button>
@@ -341,6 +338,8 @@
           <button type="button" class="card-names card-open">
             <span class="card-name"></span>
             <span class="card-subname"></span>
+            <!-- "9 dialects": only a count; the dialects themselves are on the Sample screen. -->
+            <span class="card-count"></span>
           </button>
           <span class="card-local tag" hidden>Near you</span>
           <div class="match">
@@ -350,12 +349,8 @@
             </svg>
             <span class="match-value"></span>
           </div>
-          <button type="button" class="play-button card-play" aria-label="Play sample"></button>
+          <!-- No play button: a guess with several dialects has no sample of its own. Its dialects each have one. -->
         </div>
-        <button type="button" class="card-toggle" aria-expanded="false">
-          <span class="card-toggle-label"></span>
-        </button>
-        <ul class="dialects" hidden></ul>
       </li>
     </template>
 
@@ -382,18 +377,5 @@
           <a class="primary-button resource-button" target="_blank" rel="noopener"></a>
         </div>
       </li>
-    </template>
-
-    <!-- One dialect inside a guess. -->
-    <template id="dialect-template">
-      <li class="dialect">
-        <div class="dialect-names">
-          <span class="dialect-name"></span>
-          <span class="dialect-region"></span>
-        </div>
-        <span class="dialect-local tag" hidden>Near you</span>
-        <button type="button" class="play-button dialect-play" aria-label="Play sample"></button>
-      </li>
-    </template>
-  </body>
+    </template>  </body>
 </html>

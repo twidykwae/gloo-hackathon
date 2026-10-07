@@ -331,8 +331,7 @@ h2[tabindex='-1']:focus {
   transition: background 0.15s;
 }
 
-.play-button::before,
-.play-glyph::before {
+.play-button::before {
   content: '';
   width: var(--icon);
   height: var(--icon);
@@ -358,18 +357,6 @@ h2[tabindex='-1']:focus {
 .play-button:disabled {
   opacity: 0.3;
   cursor: default;
-}
-
-.play-glyph {
-  --icon: 8px;
-  display: inline-grid;
-  place-items: center;
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  background: var(--ink);
-  color: var(--paper);
-  vertical-align: -3px;
 }
 
 /* --------------------------------------------------------- 1. record */
@@ -759,6 +746,13 @@ body:not([data-phase='recording']) .level::before {
   font: 400 12px var(--sans);
 }
 
+/* "9 dialects" under the name: a count, not a control. */
+.card-count {
+  margin-top: 2px;
+  color: var(--ink-2);
+  font: 500 13px var(--sans);
+}
+
 /*
  * Match ring: --pct (0 to 100) fills it; --strength (0 to 1, next to the best
  * guess) turns it from pale grey to deep blue.
@@ -807,57 +801,6 @@ body:not([data-phase='recording']) .level::before {
   letter-spacing: -0.03em;
 }
 
-.card-toggle {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-  padding: 10px 16px 12px 46px;
-  border: none;
-  border-top: 1px solid var(--line-soft);
-  background: transparent;
-  color: var(--ink-2);
-  font: 500 13px var(--sans);
-  text-align: left;
-  cursor: pointer;
-}
-
-.card-toggle-label {
-  flex: 1;
-}
-
-/* Chevron, pointing down when closed. */
-.card-toggle::after {
-  content: '';
-  width: 7px;
-  height: 7px;
-  margin: -4px 4px 0 0;
-  border-right: 2px solid currentColor;
-  border-bottom: 2px solid currentColor;
-  transform: rotate(45deg);
-  transition: transform 0.25s;
-}
-
-.card-toggle[aria-expanded='true']::after {
-  margin-top: 4px;
-  transform: rotate(-135deg);
-}
-
-.dialects {
-  margin: 0;
-  padding: 0 12px 10px 46px;
-  list-style: none;
-  animation: fade-up 0.25s ease-out both;
-}
-
-.dialect {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 10px 0;
-  border-top: 1px solid var(--line-soft);
-}
-
 .dialect-names {
   display: flex;
   flex: 1;
@@ -873,16 +816,6 @@ body:not([data-phase='recording']) .level::before {
 .dialect-region {
   color: var(--muted);
   font: 400 12px var(--sans);
-}
-
-.dialect-play {
-  border: 1.5px solid var(--dot);
-  background: transparent;
-  color: var(--ink);
-}
-
-.dialect-play {
-  --icon: 13px;
 }
 
 #show-more {

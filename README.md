@@ -292,13 +292,12 @@ studio recordings are the easy case.)
 | Part | What it does |
 | --- | --- |
 | **Cards** | One per guess, in the model's order, numbered 01, 02, … by their place in the list. The model's rank is kept as `data-rank`; it can skip numbers, because guesses the catalog doesn't have are dropped |
-| **Names** | The name in the language itself when we have it (`native`), with the English name under it; otherwise just the English name |
+| **Names** | The name in the device's language when GRN has it, else in English, with the language's own name under it when known (see "Which name is shown") |
 | **Match ring** | The model's confidence for the guess. Its color deepens with how close the guess is to the best one, so the top guess is always the strongest blue |
-| **Play** | Plays the guess's sample (`sampleId`), see "Playing language samples" |
-| **Dialects** | A guess covering several GRN languages lists them under a "N dialects" toggle; the top guess starts open. The model can't rank them (they share one ISO code), so they have no match ring. A dialect's name drops the guess's name ("Chamula" under Tzotzil), and its countries are listed under it |
-| **Near me** | Asks for the location the first time, then marks guesses and dialects spoken in that country "Near you" and lists those dialects first. It doesn't hide or reorder guesses. A variety counts if its parent language is listed. When every dialect of a guess is local, only the card is marked. Tap again to turn it off |
+| **Dialects** | Only counted: "9 dialects" under the name of a guess covering several GRN languages. The rankings show the languages, not their dialects; those are listed, with samples, on the Sample screen. No play button either, since a guess with several dialects has no sample of its own |
+| **Near me** | Asks for the location the first time, then marks guesses spoken in that country "Near you". It doesn't hide or reorder guesses. A variety counts if its parent language is listed. Tap again to turn it off |
 | **Show more** | Shows 10 more cards. The first page is 10 (`pageSize` in `js/config.js`) |
-| **Tapping a card** | Anywhere on its top row but the play button: opens that guess on the Sample screen |
+| **Tapping a card** | Anywhere on it: opens that guess on the Sample screen |
 | **No match, record again** | Back to Record |
 | **None, enter new dialect** | The new-dialect form (see "The flow") |
 
@@ -320,9 +319,8 @@ attributes and a few custom properties, listed here.
 | `#record-level > span` | One bar each; `--level` is 0 to 1 |
 | `#detect-steps > li[data-state]` | `pending`, `active` or `done` |
 | `#near-me[aria-pressed="true"]` | "Near me" is on |
-| `#results-list > li.card` | One guess: `.card-open` (a button around `.card-name` and `.card-subname` that opens it on the Sample screen), `.card-name` (in the device's language), `.card-subname` (the language's own name, only when known and different), `.card-local` ("Near you"), `.match`, `.card-play`, `.card-toggle[aria-expanded]`, `ul.dialects`. `data-label` is the model's code, `data-rank` its rank, `data-count` how many languages it covers. `--i` is its place on the page, for staggering the fade-in |
+| `#results-list > li.card` | One guess: `.card-open` (a button around `.card-name` and `.card-subname` that opens it on the Sample screen), `.card-name` (in the device's language), `.card-subname` (the language's own name, only when known and different), `.card-count` ("9 dialects", only with several; plain text, not a dropdown), `.card-local` ("Near you"), `.match`. `data-label` is the model's code, `data-rank` its rank, `data-count` how many languages it covers. `--i` is its place on the page, for staggering the fade-in |
 | `.match` | The match ring: `--pct` (0 to 100) fills it, `--strength` (0 to 1) colors it |
-| `li.dialect` | One dialect: `.dialect-name`, `.dialect-region`, `.dialect-local`, `.dialect-play` |
 | `#sample-dots > li` | `data-current="true"` for the guess on screen, `data-seen="true"` for ones already opened |
 | `#sample-single`, `#sample-dialects-block` | The Sample screen's two layouts: one language (big `#sample-play` and `#sample-wave`), or several (`li.sample-dialect` rows with `.choose-button`) |
 | `#sample-prev`, `#sample-next` | Previous (arrow only) and Next. Next holds `#sample-next-match` (a small `.match` ring) and `.nav-next-label`; it and `#sample-next-hint` are hidden on the last guess |
@@ -411,8 +409,9 @@ is the GRN language ID (the `id` in `data/languages.json`, not an ISO code).
 
 ### On the page
 
-- **The buttons.** On the rankings, `.card-play` on each guess plays its
-  `sampleId` and `.dialect-play` on each dialect plays that language. On the
+- **The buttons.** The rankings have none: they only list the languages,
+  with "9 dialects" under one that has several, and a guess with several
+  dialects (a heading such as English) has no sample of its own. On the
   Sample screen, `#sample-play` plays a one-language guess, and each
   `.sample-dialect` row has its own. All are `.play-button`. A button finds
   its language with `button.closest('[data-id]')`: a guess's button carries

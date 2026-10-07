@@ -123,7 +123,6 @@ const el = {
   consentYes: $('consent-yes'),
   consentNo: $('consent-no'),
   cardTemplate: $('card-template'),
-  dialectTemplate: $('dialect-template'),
   sampleDialectTemplate: $('sample-dialect-template'),
   resourceTemplate: $('resource-template'),
 }
@@ -147,7 +146,6 @@ const state = {
   candidates: [], // the guesses the catalog knows, in the model's order
   topConfidence: 0, // the best guess's score: a full-strength match ring
   shown: config.pageSize,
-  expanded: new Set(), // labels of guesses whose dialect list is open
   nearMe: false, // the "Near me" chip is on
   location: null, // { code, name } once "Near me" has found it
   // Gloo AI on the Resources screen, for one language at a time.
@@ -423,8 +421,6 @@ async function showResultsWhenReady(session) {
   state.candidates = candidates.filter((c) => c.known)
   state.topConfidence = topConfidence(candidates)
   state.shown = config.pageSize
-  // Every guess starts with its dialects hidden.
-  state.expanded = new Set()
   renderResults()
   // Straight to hearing the best guess; all the rankings are a tap away.
   if (state.candidates.length > 0) showSample(0)
@@ -474,63 +470,17 @@ function renderCard(candidate, index, country) {
 
   showMatch(card.querySelector('.match'), candidate)
 
-  const play = part('play')
-  if (candidate.sampleId == null) markSampleMissing(play, 'No sample')
-  else play.dataset.id = String(candidate.sampleId)
-
-  const dialects = card.querySelector('.dialects')
-  if (candidate.languages.length > 1) {
-    dialects.id = `dialects-${candidate.label}`
-    part('toggle').setAttribute('aria-controls', dialects.id)
-    // When every dialect is local, the card's own tag says so; one per row would be noise.
-    const tagDialects = !candidate.languages.every((lang) => isInCountry(lang, country))
-    dialects.replaceChildren(
-      ...nearFirst(candidate.languages, country).map((lang) =>
-        renderDialect(lang, shownName(candidate), tagDialects ? country : null),
-      ),
-    )
-    setExpanded(card, state.expanded.has(candidate.label))
-  } else {
-    part('toggle').remove()
-    dialects.remove()
-  }
+  // Rankings show only the languages; a guess's dialects are listed on the Sample screen.
+  const count = candidate.languages.length
+  if (count > 1) part('count').textContent = `${count} dialects`
+  else part('count').remove()
   return card
 }
 
-function renderDialect(language, groupName, country) {
-  const item = el.dialectTemplate.content.firstElementChild.cloneNode(true)
-  item.dataset.id = String(language.id)
-  item.querySelector('.dialect-name').textContent = shortName({ name: shownName(language) }, groupName)
-  const region = item.querySelector('.dialect-region')
-  region.textContent = describeCountries(language.countries)
-  if (!region.textContent) region.remove()
-  item.querySelector('.dialect-local').hidden = !isInCountry(language, country)
-  if (!language.hasSample) markSampleMissing(item.querySelector('.play-button'), 'No sample')
-  return item
-}
-
-function setExpanded(card, open) {
-  card.querySelector('.card-toggle').setAttribute('aria-expanded', String(open))
-  card.querySelector('.card-toggle-label').textContent = open ? 'Hide dialects' : `${card.dataset.count} dialects`
-  card.querySelector('.dialects').hidden = !open
-}
-
+// Anywhere on a card opens it on the Sample screen.
 el.list.addEventListener('click', (e) => {
-  const toggle = e.target.closest('.card-toggle')
-  if (toggle) {
-    const card = toggle.closest('.card')
-    const open = toggle.getAttribute('aria-expanded') !== 'true'
-    if (open) state.expanded.add(card.dataset.label)
-    else state.expanded.delete(card.dataset.label)
-    setExpanded(card, open)
-    return
-  }
-  // Anywhere on a card's top row but its play button opens it on the Sample screen.
-  const main = e.target.closest('.card-main')
-  if (main && !e.target.closest('.play-button')) {
-    const label = main.closest('.card').dataset.label
-    showSample(state.candidates.findIndex((c) => c.label === label))
-  }
+  const card = e.target.closest('.card')
+  if (card) showSample(state.candidates.findIndex((c) => c.label === card.dataset.label))
 })
 
 async function useLocation() {

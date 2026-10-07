@@ -25,6 +25,10 @@ Wait for `Application startup complete` (about 10 seconds while the model
 loads), then open <http://localhost:8080> in Chrome, Edge or Firefox. Press
 Ctrl+C to stop it.
 
+To show each language's Bible on the Resources screen, put the YouVersion app
+key in `server/.env` (git ignores it) and add `--env-file .env` to the command
+above. See "Bibles from YouVersion".
+
 The microphone and GPS work on `localhost` without HTTPS. On any other address
 they need HTTPS.
 
@@ -100,6 +104,7 @@ cd server
 | `js/results.js` | **Converts raw model output into guesses**, plus small helpers for showing them. No DOM, fully tested |
 | `js/location.js` | Browser GPS to country code |
 | `js/qr.js` | QR codes for the Resources screen's links, as SVG |
+| `js/bible.js` | Turns the server's `/bible/{id}` answer into a Resources screen link. No DOM, fully tested |
 | `js/vendor/qrcode.mjs` | The QR encoder, [qrcode-generator](https://github.com/kazuhikoarase/qrcode-generator) 2.0.4 (MIT), copied in so it works offline |
 | `data/languages.json` | All 6,816 GRN languages: name, native name (173 of them), ISO code, macrolanguage code, parent, whether a sample exists, countries |
 | `data/countries.geojson` | Country borders (Natural Earth, public domain) for GPS to country, offline |
@@ -111,6 +116,7 @@ cd server
 | `server/app/identifiers.py` | The models: Meta's MMS (default), LAMP (over HTTP), and a stub |
 | `server/app/audio.py` | Reads the uploaded WAV |
 | `server/app/config.py` | Server settings, from environment variables (see below) |
+| `server/app/bibles.py` | Finds a GRN language's Bible on YouVersion (see "Bibles from YouVersion") |
 | `server/app/samples.py` | Downloads a language's sample MP3 from GRN once and keeps it (see "Playing language samples") |
 | `scripts/fetch_samples.py` | Downloads sample MP3s ahead of time, from the command line (see "Playing language samples") |
 | `data/sample-audio/` | Downloaded sample MP3s (not in git) |
@@ -325,6 +331,7 @@ Set these as environment variables before starting the server (in PowerShell,
 | `LID_CORS_ORIGINS` | none | Comma-separated addresses of other websites allowed to call `/predict`. Not needed for the page this server serves |
 | `LID_LAMP_URL` | `http://127.0.0.1:8001` | Where LAMP's server listens, in `lamp` mode |
 | `LID_SAMPLES_DIR` | `data/sample-audio` | Where downloaded sample MP3s are kept |
+| `YVP_APP_KEY` | none | YouVersion Platform app key, for `GET /bible/{id}`. Without it the Resources screen just has no Bible link |
 
 ### Switching to LAMP
 
@@ -397,3 +404,43 @@ It can also be used from Python:
 from fetch_samples import fetch_samples
 paths = fetch_samples(["1", "51", "92"])  # {id: Path, or None if the download failed}
 ```
+
+## Bibles from YouVersion
+
+After "This is my language", the Resources screen adds the language's Bible
+on YouVersion below the 5fish link, when YouVersion has one: a link and QR
+code to `bible.com/versions/<id>`, plus the version name and copyright, which
+YouVersion requires wherever its Bibles are shown.
+
+**On the server**, `GET /bible/{id}` (`server/app/bibles.py`) maps the GRN
+language to its ISO 639-3 code (dialects use their parent's), then to
+YouVersion's language through the 3-letter ISO codes YouVersion lists as
+aliases (Amharic is `am`, alias `amh`), and returns that language's Bible:
+
+```json
+{ "grn_id": 2641, "language": "Tzotzil: Chamula", "iso": "tzo", "youversion_language": "tzo",
+  "bible": { "id": 837, "abbreviation": "tzoA", "localized_title": "Tzotzil de Huixtán",
+             "copyright": "© 1995, Wycliffe Bible Translators, Inc. All rights reserved.",
+             "url": "https://www.bible.com/versions/837", "can_show_text": true },
+  "bible_count": 3 }
+```
+
+`"bible": null` means YouVersion has none. `can_show_text` says whether our app
+key is licensed to show the Bible's text itself; the bible.com link works
+either way. It's a 404 for an unknown GRN id, 502 if YouVersion can't be
+reached (after one retry), and 503 without `YVP_APP_KEY`. YouVersion's
+language list and our licenses are cached for an hour, so newly agreed
+licenses show up without a restart.
+
+**Setup:** get an app key at platform.youversion.com, then in `server/`:
+
+```powershell
+"YVP_APP_KEY=your-key" | Out-File -Encoding ascii .env
+.venv\Scripts\python -m uvicorn app.main:create_app --factory --port 8080 --env-file .env
+```
+
+**Coverage** (October 2026): 1,918 of the 6,816 GRN languages (28%) have a
+Bible on YouVersion. With the Wycliffe, Biblica and SIL "Fast-track" licenses
+agreed in the YouVersion portal, our key can show the text of all of them.
+Most of the rest have no Bible translation anywhere yet; for them, GRN's
+recordings on 5fish are the content.

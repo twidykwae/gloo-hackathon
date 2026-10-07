@@ -1212,6 +1212,15 @@ body:not([data-phase='recording']) .level::before {
   font: 400 12px var(--mono);
 }
 
+/* The Bible card's version name and copyright (YouVersion requires both). */
+.resource-note {
+  display: block;
+  margin-top: 4px;
+  color: var(--faint);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
 .resource-qr {
   display: flex;
   align-items: center;

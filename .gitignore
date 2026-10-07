@@ -6,3 +6,5 @@ __pycache__/
 tools/database_5fish.db
 # GRN sample MP3s, downloaded on demand by the server (server/app/samples.py).
 data/sample-audio/
+# Local secrets and settings, e.g. YVP_APP_KEY (server/.env)
+.env
